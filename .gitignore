@@ -1,0 +1,58 @@
+# Python tooling cache
+.pytest_cache/
+.ruff_cache/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment files
+.env
+.env.local
+
+# AI tools
+.trae/
+openspec/
+
+# Logs
+*.log
+
+# npm / Node.js
+node_modules/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temp files
+tmp/
+ngrok.exe
+launch.bat
+
+# Server
+server/log/
+server/data/
+server/app/storage/
+
+# Client
+client/config/tc.share
+client/jars/
+client/.cache/
+client/.venv
+
+# Spark
+**/spark-warehouse/

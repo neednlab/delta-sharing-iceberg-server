@@ -1,0 +1,28 @@
+[project]
+name = "delta-sharing-iceberg-client"
+version = "0.1.0"
+description = "Delta Sharing Client for Iceberg Tables - Testing Scripts"
+requires-python = ">=3.12"
+dependencies = [
+    "pyspark>=3.5.0,<4.0.0",
+    "delta-sharing>=1.4.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = ["E402"]

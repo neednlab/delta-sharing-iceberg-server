@@ -1,0 +1,165 @@
+"""
+Page Token 编解码工具模块
+
+提供基于 HMAC-SHA256 签名的安全 page token 编解码功能。
+Token 结构: base64({"payload": compact_json, "sig": hex_digest})
+
+该模块作为共享工具供 share_service.py 和 recipient_service.py 统一引用，
+消除重复代码并确保安全策略一致。
+"""
+
+import base64
+import binascii
+import hashlib
+import hmac
+import json
+import secrets
+from typing import Optional
+
+from loguru import logger
+
+
+def _get_token_secret() -> str:
+    """获取 page token HMAC 签名密钥。
+
+    从全局配置中读取 page_token_secret，若未配置则生成随机临时密钥并警告。
+
+    Returns:
+        HMAC 签名密钥字符串。
+    """
+    from app.core.config import get_config
+
+    config = get_config()
+    secret = config.token.page_token_secret
+
+    if not secret:
+        secret = secrets.token_hex(32)
+        logger.warning(
+            "PAGE_TOKEN_SECRET 未设置，已生成随机临时密钥。"
+            "生产环境请通过环境变量 PAGE_TOKEN_SECRET 配置固定密钥"
+        )
+
+    return secret
+
+
+def encode_page_token(offset: int) -> str:
+    """将偏移量编码为安全的 page token。
+
+    编码流程:
+        1. 将 offset 序列化为紧凑 JSON payload
+        2. 使用 HMAC-SHA256 对 payload 签名
+        3. 组装 {"payload": ..., "sig": ...} 结构体
+        4. Base64 编码整个结构体
+
+    Args:
+        offset: 分页偏移量（非负整数）。
+
+    Returns:
+        Base64 编码的签名 token 字符串。
+    """
+    secret = _get_token_secret()
+
+    payload = json.dumps({"offset": offset}, separators=(",", ":"))
+
+    sig = hmac.new(
+        secret.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    token_structure = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
+
+    return base64.urlsafe_b64encode(token_structure.encode("utf-8")).decode("ascii")
+
+
+def decode_page_token(token: str) -> Optional[int]:
+    """解码 page token 并返回偏移量。
+
+    解码流程:
+        1. Base64 解码（捕获 binascii.Error / ValueError）
+        2. UTF-8 解码（捕获 UnicodeDecodeError）
+        3. JSON 解析外层结构体（捕获 json.JSONDecodeError）
+        4. 验证结构体包含 payload 和 sig 字段
+        5. HMAC-SHA256 签名验证（使用 hmac.compare_digest 防时序攻击）
+        6. JSON 解析内层 payload
+        7. offset 类型与范围校验（isinstance(offset, int) 且 offset >= 0）
+
+    Args:
+        token: Base64 编码的签名 token 字符串。
+
+    Returns:
+        偏移量整数，解码失败或签名不匹配时返回 None。
+    """
+    secret = _get_token_secret()
+
+    # 步骤 1: Base64 解码
+    try:
+        raw_bytes = base64.urlsafe_b64decode(token.encode("ascii"))
+    except (binascii.Error, ValueError):
+        logger.warning("Invalid base64 page token")
+        return None
+
+    # 步骤 2: UTF-8 解码
+    try:
+        raw_str = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        logger.warning("Page token decode error (non-UTF8)")
+        return None
+
+    # 步骤 3: JSON 解析外层结构
+    try:
+        outer = json.loads(raw_str)
+    except json.JSONDecodeError:
+        logger.warning("Page token JSON parse error")
+        return None
+
+    # 步骤 4: 验证结构体字段
+    if not isinstance(outer, dict):
+        logger.warning("Page token structure is not a JSON object")
+        return None
+
+    payload = outer.get("payload")
+    sig = outer.get("sig")
+
+    if payload is None:
+        logger.warning("Page token missing 'payload' field")
+        return None
+
+    if sig is None:
+        logger.warning("Page token missing 'sig' field")
+        return None
+
+    # 步骤 5: HMAC 签名验证
+    expected_sig = hmac.new(
+        secret.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_sig, sig):
+        logger.warning("Page token signature mismatch")
+        return None
+
+    # 步骤 6: 解析内层 payload
+    try:
+        inner = json.loads(payload)
+    except json.JSONDecodeError:
+        logger.warning("Page token payload JSON parse error")
+        return None
+
+    # 步骤 7: offset 类型与范围校验
+    offset = inner.get("offset")
+
+    if offset is None:
+        logger.warning("Page token payload missing 'offset' key")
+        return None
+
+    if not isinstance(offset, int):
+        logger.warning(f"Page token offset type error: expected int, got {type(offset).__name__}")
+        return None
+
+    if offset < 0:
+        logger.warning(f"Page token negative offset: {offset}")
+        return None
+
+    return offset
