@@ -47,6 +47,7 @@ launch.bat
 server/log/
 server/data/
 server/app/storage/
+server/scripts/ini_data.py
 
 # Client
 client/config/tc.share
