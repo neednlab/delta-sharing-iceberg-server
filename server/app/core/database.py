@@ -21,6 +21,7 @@
 - Version 相关 → VersionRepository
 """
 
+import os
 from typing import Optional
 
 from sqlalchemy import (
@@ -242,6 +243,10 @@ class Database:
         connect_args = {}
         if db_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
+            db_path = db_url[len("sqlite:///") :]
+            db_dir = os.path.dirname(db_path)
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
 
         self._engine = create_engine(db_url, connect_args=connect_args, echo=False)
         self._metadata.create_all(self._engine, checkfirst=True)
