@@ -2,7 +2,6 @@
 name = "delta-sharing-iceberg-server"
 version = "0.1.0"
 description = "Delta Sharing Server for Iceberg Tables"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

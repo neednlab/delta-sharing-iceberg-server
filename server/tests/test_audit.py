@@ -27,7 +27,6 @@ def reset_state():
     """每个测试前重置全局状态。"""
     request_id_ctx.set(None)
     _recorded_ids.clear()
-    from app.core.audit import _audit_logger
     import app.core.audit as audit_mod
 
     audit_mod._audit_logger = None
@@ -206,7 +205,6 @@ class TestRequestIdCtx:
 class TestGetAuditLoggerSingleton:
     def test_multiple_calls_return_same_instance(self, mock_config):
         with patch("app.core.audit.get_config", return_value=mock_config):
-            from app.core.audit import _audit_logger
             import app.core.audit as audit_mod
 
             audit_mod._audit_logger = None

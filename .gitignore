@@ -50,10 +50,11 @@ server/app/storage/
 server/scripts/ini_data.py
 
 # Client
-client/config/tc.share
+client/config/
 client/jars/
 client/.cache/
 client/.venv
 
 # Spark
 **/spark-warehouse/
+

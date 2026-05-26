@@ -948,7 +948,7 @@ class TestIcebergSchemaConverter:
         无论输入是 decimal 还是 numeric，输出端 _type_value 都必须
         序列化为标准 decimal(P,S) 格式，保证协议兼容性。
         """
-        from pyiceberg.types import DecimalType, NestedField
+        from pyiceberg.types import NestedField
         from app.services.iceberg_service import IcebergSchemaConverter
 
         # numeric(38,0) 输入 → 解析 → 序列化 → 输出 "decimal(38,0)"

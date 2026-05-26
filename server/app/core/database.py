@@ -21,6 +21,7 @@
 - Version 相关 → VersionRepository
 """
 
+import os
 from typing import Optional
 
 from sqlalchemy import (
@@ -137,7 +138,7 @@ shared_tables = Table(
 recipient_shares = Table(
     "recipient_shares",
     _metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("id", String, primary_key=True),
     Column("recipient_id", String, nullable=False),
     Column("share_id", String),
     Column("granted_at", Integer, nullable=False),
@@ -242,6 +243,10 @@ class Database:
         connect_args = {}
         if db_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
+            db_path = db_url[len("sqlite:///") :]
+            db_dir = os.path.dirname(db_path)
+            if db_dir:
+                os.makedirs(db_dir, exist_ok=True)
 
         self._engine = create_engine(db_url, connect_args=connect_args, echo=False)
         self._metadata.create_all(self._engine, checkfirst=True)
