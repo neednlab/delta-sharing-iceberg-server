@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "tc.share")
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "local.share")
 
 script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 tmp_dir = os.path.join(script_dir, "tmp")
@@ -261,10 +261,10 @@ def read_table(share_name: str, schema_name: str, table_name: str, mode: str = "
 
 
 if __name__ == "__main__":
-    # list_tables()
+    list_tables()
 
-    share_name = "needn_share"
+    share_name = "cnslk_share"
     schema_name = "shared_cnslk"
-    table_name = "t_scup"
+    table_name = "s100"
 
-    read_table(share_name, schema_name, table_name, mode="spark")
+    #read_table(share_name, schema_name, table_name, mode="spark")

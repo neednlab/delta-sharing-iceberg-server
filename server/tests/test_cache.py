@@ -11,7 +11,7 @@ RequestCacheManager 和 CacheMiddleware 单元测试
 """
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock
 from contextvars import copy_context
 
 from app.core.cache import RequestCacheManager, CacheMiddleware

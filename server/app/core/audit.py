@@ -128,7 +128,9 @@ class AuditLogger:
         category: str = "internal",
         operation_type: Optional[str] = None,
         recipient_id: Optional[str] = None,
+        recipient_name: Optional[str] = None,
         share: Optional[str] = None,
+        share_name: Optional[str] = None,
         schema: Optional[str] = None,
         table: Optional[str] = None,
         http_method: Optional[str] = None,
@@ -154,6 +156,7 @@ class AuditLogger:
         error_code: Optional[str] = None,
         error_message: Optional[str] = None,
         timestamp: Optional[int] = None,
+        token_hash: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> None:
         """记录一条完整的审计日志。
@@ -168,7 +171,8 @@ class AuditLogger:
                           data_plane/health/internal → client_audit/client-audit-YYYY-MM-DD.jsonl
             operation_type: 操作分类（query / metadata / admin_recipient 等）。
             recipient_id: 接收者 ID。
-            share / schema / table: 资源路径。
+            recipient_name: 接收者名称（admin 操作时使用）。
+            share / share_name / schema / table: 资源路径。
             http_method / http_path / http_status_code / http_duration_ms / http_response_size_bytes: HTTP 层信息。
             client_ip / user_agent: 客户端信息。
             predicate_hints / json_predicate_hints / limit_hint 等: 请求详情。
@@ -176,6 +180,7 @@ class AuditLogger:
             file_paths: 文件列表，仅 audit_log_level=DEBUG 时记录。
             error_code / error_message: 错误信息。
             timestamp: 毫秒时间戳，为 None 时使用当前时间。
+            token_hash: Token SHA-256 哈希值（token 管理操作时使用）。
             extra: 额外自定义字段。
         """
         if timestamp is None:
@@ -218,12 +223,18 @@ class AuditLogger:
         resource_fields: Dict[str, Any] = {}
         if recipient_id is not None:
             resource_fields["recipient_id"] = recipient_id
+        if recipient_name is not None:
+            resource_fields["recipient_name"] = recipient_name
         if share is not None:
             resource_fields["share"] = share
+        if share_name is not None:
+            resource_fields["share_name"] = share_name
         if schema is not None:
             resource_fields["schema"] = schema
         if table is not None:
             resource_fields["table"] = table
+        if token_hash is not None:
+            resource_fields["token_hash"] = token_hash
 
         # 请求详情子结构
         request_details: Dict[str, Any] = {}

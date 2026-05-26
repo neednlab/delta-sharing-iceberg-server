@@ -138,7 +138,7 @@ shared_tables = Table(
 recipient_shares = Table(
     "recipient_shares",
     _metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("id", String, primary_key=True),
     Column("recipient_id", String, nullable=False),
     Column("share_id", String),
     Column("granted_at", Integer, nullable=False),
