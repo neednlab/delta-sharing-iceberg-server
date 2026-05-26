@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 load_dotenv(".env.local", override=True)
 
 import json
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -30,6 +31,7 @@ from typing import Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.types import ASGIApp, Scope, Receive, Send, Message
 
@@ -353,6 +355,12 @@ def create_admin_app() -> FastAPI:
     # 注册路由：admin_router 自带 /admin/v1 prefix，添加 /delta-sharing 后
     # 组合成完整路径 /delta-sharing/admin/v1/...
     app.include_router(admin_router, prefix="/delta-sharing")
+
+    ui_dist = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ui", "dist"
+    )
+    if os.path.isdir(ui_dist):
+        app.mount("/", StaticFiles(directory=ui_dist, html=True), name="ui")
 
     return app
 
