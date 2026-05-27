@@ -196,7 +196,7 @@ async def get_table_version(
 
         snapshot_id = snapshot.get("snapshot-id")
         current_version = version_service.get_or_allocate_version(
-            share, schema, table, snapshot_id, int(snapshot.get("timestamp", 0))
+            share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
         )
 
         version = current_version
