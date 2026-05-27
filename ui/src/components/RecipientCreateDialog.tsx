@@ -3,7 +3,7 @@
  * 创建Recipient的对话框，包含名称、注释和授权Share选择
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogSurface,
@@ -56,6 +56,7 @@ export const RecipientCreateDialog: React.FC<RecipientCreateDialogProps> = ({
   const [loadingShares, setLoadingShares] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const loadShares = useCallback(async () => {
     setLoadingShares(true);
@@ -75,8 +76,13 @@ export const RecipientCreateDialog: React.FC<RecipientCreateDialogProps> = ({
   }, [loadShares]);
 
   const handleCreate = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setError(null);
+
+    const errors: string[] = [];
+
     try {
       await recipientApi.createRecipient({
         name,
@@ -87,15 +93,21 @@ export const RecipientCreateDialog: React.FC<RecipientCreateDialogProps> = ({
         try {
           await recipientApi.grantShareToRecipient(name, shareName);
         } catch (err) {
-          console.error(`Failed to grant share ${shareName}:`, err);
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`Failed to grant share ${shareName}: ${msg}`);
         }
       }
 
-      onCreated();
-      onClose();
+      if (errors.length > 0) {
+        setError(`Some operations failed:\n${errors.join('\n')}`);
+      } else {
+        onCreated();
+        onClose();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create recipient');
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };

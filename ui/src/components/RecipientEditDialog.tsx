@@ -3,7 +3,7 @@
  * 编辑Recipient的对话框，包含名称、注释、状态切换和授权Share管理
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogSurface,
@@ -63,6 +63,7 @@ export const RecipientEditDialog: React.FC<RecipientEditDialogProps> = ({
   const [loadingShares, setLoadingShares] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   const loadShares = useCallback(async () => {
     setLoadingShares(true);
@@ -89,8 +90,15 @@ export const RecipientEditDialog: React.FC<RecipientEditDialogProps> = ({
   }, [recipientName, loadShares]);
 
   const handleUpdate = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setError(null);
+
+    const effectiveName = name !== recipientName ? name : recipientName;
+
+    const errors: string[] = [];
+
     try {
       await recipientApi.updateRecipient(recipientName, {
         newName: name !== recipientName ? name : undefined,
@@ -98,7 +106,7 @@ export const RecipientEditDialog: React.FC<RecipientEditDialogProps> = ({
         isActive,
       });
 
-      const currentSharesResponse = await recipientApi.getRecipientShares(recipientName);
+      const currentSharesResponse = await recipientApi.getRecipientShares(effectiveName);
       const currentShareNames = currentSharesResponse.items.map(item => item.share_name);
 
       const sharesToAdd = selectedShares.filter(s => !currentShareNames.includes(s));
@@ -106,25 +114,32 @@ export const RecipientEditDialog: React.FC<RecipientEditDialogProps> = ({
 
       for (const shareName of sharesToAdd) {
         try {
-          await recipientApi.grantShareToRecipient(recipientName, shareName);
+          await recipientApi.grantShareToRecipient(effectiveName, shareName);
         } catch (err) {
-          console.error(`Failed to grant share ${shareName}:`, err);
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`Failed to grant share ${shareName}: ${msg}`);
         }
       }
 
       for (const shareName of sharesToRemove) {
         try {
-          await recipientApi.revokeShareFromRecipient(recipientName, shareName);
+          await recipientApi.revokeShareFromRecipient(effectiveName, shareName);
         } catch (err) {
-          console.error(`Failed to revoke share ${shareName}:`, err);
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`Failed to revoke share ${shareName}: ${msg}`);
         }
       }
 
-      onUpdated();
-      onClose();
+      if (errors.length > 0) {
+        setError(`Some operations failed:\n${errors.join('\n')}`);
+      } else {
+        onUpdated();
+        onClose();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update recipient');
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
