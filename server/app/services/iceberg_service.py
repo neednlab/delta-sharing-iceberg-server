@@ -1527,7 +1527,7 @@ class IcebergService:
                 "size": f.get("file_size"),
                 "stats": stats_str,
                 "version": display_version,
-                "timestamp": int(snapshot.get("timestamp", 0)),
+                "timestamp": int(snapshot.get("timestamp-ms", 0)),
                 "expirationTimestamp": expiration_timestamp,
             }
 

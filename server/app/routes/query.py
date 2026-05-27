@@ -355,7 +355,7 @@ async def query_table(
             )
 
         current_version = version_service.get_or_allocate_version(
-            share, schema, table, snapshot_id, int(snapshot.get("timestamp", 0))
+            share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
         )
 
         data_files = iceberg_service.get_data_files(

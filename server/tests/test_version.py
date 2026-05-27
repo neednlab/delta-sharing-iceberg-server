@@ -50,6 +50,20 @@ class TestVersionService:
         assert result == 5
         mock_repo.update_timestamp.assert_not_called()
 
+    def test_get_or_allocate_with_valid_timestamp(self, vs, mock_repo):
+        mock_repo.find_by_snapshot.return_value = None
+        mock_repo.allocate.return_value = 7
+        result = vs.get_or_allocate_version("s1", "sc1", "t1", 200, 1700000000000)
+        assert result == 7
+        mock_repo.allocate.assert_called_once_with("s1", "sc1", "t1", 200, 1700000000000)
+
+    def test_update_timestamp_triggered_when_valid(self, vs, mock_repo):
+        mock_repo.find_by_snapshot.return_value = 3
+        result = vs.get_or_allocate_version("s1", "sc1", "t1", 100, 1700000000000)
+        assert result == 3
+        mock_repo.update_timestamp.assert_called_once_with("s1", "sc1", "t1", 100, 1700000000000)
+        mock_repo.allocate.assert_not_called()
+
     def test_get_by_version_valid(self, vs, mock_repo):
         mock_repo.find_by_version.return_value = {
             "snapshot_id": 42,
@@ -106,7 +120,7 @@ class TestVersionEndpoint:
             self.mock_auth.check_share_access.return_value = True
             self.mock_iceberg.get_current_snapshot.return_value = {
                 "snapshot-id": 100,
-                "timestamp": 1700000000000,
+                "timestamp-ms": 1700000000000,
             }
             self.mock_version.get_or_allocate_version.return_value = 5
             self.mock_version.get_version_by_timestamp.return_value = {
@@ -156,6 +170,31 @@ class TestVersionEndpoint:
         self.mock_auth.check_share_access.return_value = False
         response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
         assert response.status_code == 403
+
+
+class TestVersionRepository:
+    @pytest.fixture
+    def repo(self, test_db):
+        from app.repositories.version_repository import VersionRepository
+
+        return VersionRepository()
+
+    def test_allocate_with_zero_timestamp_fallback(self, repo):
+        version = repo.allocate("ts", "tsc", "tt", 999, 0)
+        assert version >= 1
+
+        record = repo.find_by_version("ts", "tsc", "tt", version)
+        assert record is not None
+        assert record["timestamp"] != 0
+
+    def test_allocate_with_valid_timestamp_stored(self, repo):
+        valid_ts = 1700000000000
+        version = repo.allocate("ts2", "tsc2", "tt2", 888, valid_ts)
+        assert version >= 1
+
+        record = repo.find_by_version("ts2", "tsc2", "tt2", version)
+        assert record is not None
+        assert record["timestamp"] == valid_ts
 
 
 if __name__ == "__main__":

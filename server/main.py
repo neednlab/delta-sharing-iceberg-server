@@ -156,6 +156,34 @@ class AuditLoggingMiddleware:
                     except Exception:
                         logger.debug("Failed to parse error response body for audit logging")
 
+                # 错误响应时提取请求头摘要，用于跨境连接问题排查
+                request_headers_summary = None
+                if status_code >= 400:
+                    raw_headers = scope.get("headers", [])
+                    headers_dict = {}
+                    for key_bytes, value_bytes in raw_headers:
+                        key = key_bytes.decode("latin-1").lower()
+                        value = value_bytes.decode("latin-1")
+                        headers_dict[key] = value
+
+                    # Authorization 头仅记录存在性状态，绝不记录 token 原文
+                    auth_value = headers_dict.get("authorization", "")
+                    if not auth_value:
+                        auth_status = "absent"
+                    elif auth_value.startswith("Bearer "):
+                        auth_status = "present"
+                    else:
+                        auth_status = "invalid"
+
+                    user_agent_value = headers_dict.get("user-agent", "")
+                    content_type_value = headers_dict.get("content-type", "")
+
+                    request_headers_summary = {
+                        "authorization": auth_status,
+                        "user_agent": user_agent_value[:100],
+                        "content_type": content_type_value,
+                    }
+
                 audit_logger.log(
                     operation=f"{scope.get('method', 'UNKNOWN')}_{path.split('?')[0]}",
                     category=category,
@@ -165,6 +193,9 @@ class AuditLoggingMiddleware:
                     http_duration_ms=duration_ms,
                     error_code=error_code,
                     error_message=error_message,
+                    extra={"request_headers_summary": request_headers_summary}
+                    if request_headers_summary is not None
+                    else None,
                 )
 
 
@@ -396,7 +427,8 @@ def main():
         host=config.server.host,
         port=config.server.port,
         log_level="info",
-        timeout_keep_alive=30,
+        timeout_keep_alive=300,
+        access_log=True,
     )
 
     admin_config = uvicorn.Config(
@@ -404,7 +436,8 @@ def main():
         host=config.server.admin_host,
         port=config.server.admin_port,
         log_level="info",
-        timeout_keep_alive=30,
+        timeout_keep_alive=300,
+        access_log=True,
     )
 
     # 7. 并发启动两个 uvicorn 服务器
