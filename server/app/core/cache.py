@@ -2,7 +2,7 @@
 请求级缓存管理模块
 
 提供基于 ContextVar 的请求级缓存工具，确保同一 HTTP 请求内
-避免对同一 COS 对象的重复下载。通过 FastAPI middleware 实现
+避免对同一 COS 对象的重复下载。通过 ASGI 中间件实现
 请求边界内的缓存自动初始化和清理。
 
 使用方式:
@@ -24,8 +24,7 @@
 from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
 
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Scope, Receive, Send
 
 
 class RequestCacheManager:
@@ -117,46 +116,52 @@ _request_cache_managers: List[RequestCacheManager] = [
 ]
 
 
-class CacheMiddleware(BaseHTTPMiddleware):
-    """请求级缓存清理中间件
+class CacheMiddleware:
+    """请求级缓存清理中间件（纯 ASGI 实现）
 
-    在请求处理前初始化所有已注册的 RequestCacheManager 为空的缓存字典，
+    在每个 HTTP 请求处理前初始化所有已注册的 RequestCacheManager 为空的缓存字典，
     在请求处理后（无论成功或异常）通过 try/finally 清理所有缓存，
     防止跨请求内存泄漏。
 
+    使用纯 ASGI 中间件而非 BaseHTTPMiddleware，避免后者已知的
+    请求体消费和异常处理问题。
+
     Attributes:
+        app: 内层 ASGI 应用实例。
         _managers: 已注册的 RequestCacheManager 实例列表。
     """
 
-    def __init__(self, app, managers: List[RequestCacheManager]):
+    def __init__(self, app: ASGIApp, managers: List[RequestCacheManager]):
         """初始化缓存中间件。
 
         Args:
             app: FastAPI/Starlette 应用实例。
             managers: 需要在请求边界内管理生命周期的缓存管理器列表。
         """
-        super().__init__(app)
+        self.app = app
         self._managers = managers
 
-    async def dispatch(self, request: Request, call_next):
-        """中间件调度入口。
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """ASGI 入口点。
 
-        在每个 HTTP 请求处理前初始化缓存字典，处理后清理。
+        仅处理 HTTP 请求：请求前初始化缓存字典，请求后清理。
+        非 HTTP 请求直接透传给内层应用。
 
         Args:
-            request: HTTP 请求对象。
-            call_next: 下一个中间件或路由处理器。
-
-        Returns:
-            处理后的 HTTP 响应对象。
+            scope: ASGI scope 字典。
+            receive: ASGI receive callable。
+            send: ASGI send callable。
         """
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         # 请求前：初始化所有缓存为空字典
         for manager in self._managers:
             manager.initialize()
 
         try:
-            response = await call_next(request)
-            return response
+            await self.app(scope, receive, send)
         finally:
             # 请求后：清理所有缓存（保证异常路径也能清理）
             for manager in self._managers:

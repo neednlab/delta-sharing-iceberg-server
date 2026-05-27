@@ -231,6 +231,8 @@ class Database:
 
         使用 create_engine(url) 创建 Engine，对 SQLite 自动传入
         connect_args={"check_same_thread": False}。
+        SQLite 数据库启用 WAL 模式以提升并发读取性能，避免读-写互斥导致的
+        "database is locked" 错误（在高并发场景下可能导致 token 验证失败返回 401）。
         初始化后自动执行数据库迁移（如删除废弃的 profile 列）。
 
         Args:
@@ -241,7 +243,9 @@ class Database:
             db_url = config.database.url
 
         connect_args = {}
-        if db_url.startswith("sqlite"):
+        # 标记是否使用 SQLite，用于后续 WAL 模式配置
+        _is_sqlite = db_url.startswith("sqlite")
+        if _is_sqlite:
             connect_args["check_same_thread"] = False
             db_path = db_url[len("sqlite:///") :]
             db_dir = os.path.dirname(db_path)
@@ -252,7 +256,30 @@ class Database:
         self._metadata.create_all(self._engine, checkfirst=True)
         logger.info(f"数据库引擎已初始化: {db_url}")
 
+        # SQLite WAL 模式：提升并发读写性能，避免 "database is locked" 错误
+        if _is_sqlite:
+            self._enable_wal_mode()
+
         self._migrate_drop_profile_columns()
+
+    def _enable_wal_mode(self) -> None:
+        """为 SQLite 数据库启用 WAL（Write-Ahead Logging）模式。
+
+        WAL 模式下读操作不会被写操作阻塞，写操作也不会被读操作阻塞，
+        显著提升高并发场景下的数据库访问稳定性。
+        journal_mode 设置为 WAL 后持久生效（写入数据库文件头部），
+        后续所有连接均自动使用 WAL 模式。
+        """
+        if self._engine is None:
+            return
+        with self._engine.connect() as conn:
+            # 执行 PRAGMA 启用 WAL 模式（持久生效，仅需执行一次）
+            conn.execute(text("PRAGMA journal_mode=WAL"))
+            # 自动 WAL checkpoint 阈值设为 1000 页（约 4MB），
+            # 避免 WAL 文件无限增长
+            conn.execute(text("PRAGMA wal_autocheckpoint=1000"))
+            conn.commit()
+            logger.info("SQLite WAL 模式已启用 (journal_mode=WAL, wal_autocheckpoint=1000)")
 
     def get_engine(self) -> Engine:
         """获取 SQLAlchemy Engine 实例。

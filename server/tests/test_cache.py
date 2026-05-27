@@ -63,33 +63,90 @@ class TestRequestCacheManagerClear:
 class TestCacheMiddlewareLifecycle:
     @pytest.mark.asyncio
     async def test_normal_path_initialize_and_clear(self):
+        """测试正常请求路径：缓存应在请求前初始化，请求后清空。"""
         mgr = RequestCacheManager("mw_test")
         app = MagicMock()
-        middleware = CacheMiddleware(app, managers=[mgr])
+        # app 是内层 ASGI 应用，需要是一个 async callable
+        app_called = False
 
-        async def mock_call_next(request):
-            return MagicMock(status_code=200)
+        async def mock_app(scope, receive, send):
+            nonlocal app_called
+            app_called = True
+            # 模拟发送响应
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"{}"})
 
-        request = MagicMock()
-        await middleware.dispatch(request, mock_call_next)
+        middleware = CacheMiddleware(app=mock_app, managers=[mgr])
 
-        assert mgr.get("any") is None
+        # 构建 ASGI scope / receive / send
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/test",
+            "headers": [],
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        send_messages = []
+
+        async def send(message):
+            send_messages.append(message)
+
+        await middleware(scope, receive, send)
+
+        assert app_called, "内层 app 应被调用"
+        assert mgr.get("any") is None, "缓存应在请求后被清空"
 
     @pytest.mark.asyncio
     async def test_exception_path_still_clears(self):
+        """测试异常路径：即使内层 app 抛出异常，缓存也应被清空。"""
         mgr = RequestCacheManager("mw_test_exc")
         app = MagicMock()
-        middleware = CacheMiddleware(app, managers=[mgr])
 
-        async def mock_call_next(request):
+        async def mock_app(scope, receive, send):
+            # 在异常前设置缓存值
             mgr.set("key", "set_before_exception")
+            # 先尝试发送响应（部分 app 可能在抛异常前已开始发送）
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b'{"error": "test"}'})
             raise ValueError("test error")
 
-        request = MagicMock()
-        with pytest.raises(ValueError, match="test error"):
-            await middleware.dispatch(request, mock_call_next)
+        middleware = CacheMiddleware(app=mock_app, managers=[mgr])
 
-        assert mgr.get("key") is None
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/test",
+            "headers": [],
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        send_messages = []
+
+        async def send(message):
+            send_messages.append(message)
+
+        with pytest.raises(ValueError, match="test error"):
+            await middleware(scope, receive, send)
+
+        # 即使发生异常，finally 块也会清理缓存
+        assert mgr.get("key") is None, "缓存应在异常发生后被清空"
 
 
 class TestCacheIsolation:

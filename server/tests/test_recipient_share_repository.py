@@ -19,7 +19,6 @@ import re
 
 import pytest
 
-from app.core.database import get_database
 from app.core.errors import DeltaSharingError, ErrorCode
 from app.repositories.recipient_repository import RecipientRepository
 from app.repositories.recipient_share_repository import RecipientShareRepository
@@ -175,7 +174,9 @@ class TestGrant:
         assert exc_info.value.error_code == ErrorCode.AUTHORIZATION_ALREADY_EXISTS
         assert exc_info.value.status_code == 409
 
-    def test_grant_different_recipient_same_share_succeeds(self, repo, recipient, share, recipient_repo):
+    def test_grant_different_recipient_same_share_succeeds(
+        self, repo, recipient, share, recipient_repo
+    ):
         """验证不同 recipient 对同一 share 的授权独立，互不影响。"""
         recipient2 = recipient_repo.create("test_recipient_2")
 
@@ -191,7 +192,9 @@ class TestGrant:
         assert result1["recipient_id"] != result2["recipient_id"]
         assert result1["share_id"] == result2["share_id"]
 
-    def test_grant_same_recipient_different_share_succeeds(self, repo, recipient, share, share_repo):
+    def test_grant_same_recipient_different_share_succeeds(
+        self, repo, recipient, share, share_repo
+    ):
         """验证同一 recipient 对不同 share 的授权独立，互不影响。"""
         share2 = share_repo.create_share("test_share_2")
 
