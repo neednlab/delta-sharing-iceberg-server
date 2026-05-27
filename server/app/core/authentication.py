@@ -14,6 +14,7 @@ import hashlib
 from typing import Optional, Dict, Any
 
 from fastapi import Request
+from loguru import logger
 
 from app.core.config import get_config
 from app.core.errors import DeltaSharingError, ErrorCode
@@ -60,6 +61,10 @@ async def get_current_recipient(request: Request) -> str:
     authorization = request.headers.get("authorization")
 
     if authorization is None:
+        logger.warning(
+            "认证失败：Authorization header 缺失 | "
+            f"path={request.url.path} | client={request.client.host if request.client else 'unknown'}"
+        )
         raise DeltaSharingError(
             ErrorCode.AUTHENTICATION_HEADER_MISSING,
             "Missing authorization header",
@@ -68,6 +73,14 @@ async def get_current_recipient(request: Request) -> str:
 
     parts = authorization.split(" ")
     if len(parts) != 2 or parts[0].lower() != "bearer":
+        # 记录格式错误详情（仅记录前几个字符以避免泄露完整 token）
+        auth_preview = authorization[:20] if authorization else "(empty)"
+        logger.warning(
+            "认证失败：Authorization header 格式无效 | "
+            f"prefix={auth_preview} | "
+            f"path={request.url.path} | "
+            f"client={request.client.host if request.client else 'unknown'}"
+        )
         raise DeltaSharingError(
             ErrorCode.AUTHENTICATION_HEADER_INVALID,
             "Invalid authorization header format",
@@ -77,6 +90,10 @@ async def get_current_recipient(request: Request) -> str:
     token = parts[1]
 
     if not token:
+        logger.warning(
+            "认证失败：Token 为空字符串 | "
+            f"path={request.url.path} | client={request.client.host if request.client else 'unknown'}"
+        )
         raise DeltaSharingError(
             ErrorCode.TOKEN_MALFORMED,
             "Token is empty",
@@ -88,6 +105,17 @@ async def get_current_recipient(request: Request) -> str:
     token_info = auth_service.validate_token(token)
 
     if token_info is None:
+        # 计算 token hash 前缀用于日志排查（仅记录前8位，不足以反推完整 token）
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        token_hash_prefix = token_hash[:8]
+        token_prefix = token[:8] if len(token) >= 8 else token
+        logger.warning(
+            "认证失败：Token 在数据库中未找到 | "
+            f"token_prefix={token_prefix} | "
+            f"hash_prefix={token_hash_prefix} | "
+            f"path={request.url.path} | "
+            f"client={request.client.host if request.client else 'unknown'}"
+        )
         raise DeltaSharingError(
             ErrorCode.INVALID_TOKEN,
             "Invalid or expired bearer token",
@@ -95,6 +123,11 @@ async def get_current_recipient(request: Request) -> str:
         )
 
     if token_info.get("is_revoked", False):
+        logger.warning(
+            "认证失败：Token 已被撤销 | "
+            f"recipient_id={token_info.get('recipient_id')} | "
+            f"path={request.url.path}"
+        )
         raise DeltaSharingError(
             ErrorCode.TOKEN_REVOKED,
             "Token has been revoked",
@@ -102,12 +135,21 @@ async def get_current_recipient(request: Request) -> str:
         )
 
     if token_info.get("is_expired", False):
+        logger.warning(
+            "认证失败：Token 已过期 | "
+            f"recipient_id={token_info.get('recipient_id')} | "
+            f"expires_at={token_info.get('expires_at')} | "
+            f"path={request.url.path}"
+        )
         raise DeltaSharingError(
             ErrorCode.TOKEN_EXPIRED,
             "Token has expired",
             status_code=403,
         )
 
+    logger.debug(
+        f"认证成功 | recipient_id={token_info.get('recipient_id')} | path={request.url.path}"
+    )
     return token_info.get("recipient_id")
 
 

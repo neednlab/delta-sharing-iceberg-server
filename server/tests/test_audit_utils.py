@@ -38,7 +38,9 @@ class TestRaiseAuditedErrorKwargsPassthrough:
     def test_recipient_name_kwarg_passed_through(self):
         """验证 recipient_name=xxx 能透传至 audit_logger.log()。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.RECIPIENT_NOT_FOUND, "Recipient not found", status_code=404)
+        error = DeltaSharingError(
+            ErrorCode.RECIPIENT_NOT_FOUND, "Recipient not found", status_code=404
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(
@@ -93,7 +95,9 @@ class TestRaiseAuditedErrorKwargsPassthrough:
     def test_mixed_admin_kwargs_passed_through(self):
         """验证 shares.py 的典型调用模式：同时传入 recipient_name + share_name。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.AUTHORIZATION_ALREADY_EXISTS, "Already exists", status_code=409)
+        error = DeltaSharingError(
+            ErrorCode.AUTHORIZATION_ALREADY_EXISTS, "Already exists", status_code=409
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(
