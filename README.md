@@ -837,6 +837,6 @@ Request end   → CacheMiddleware.clear()       # Free cache memory (finally ens
 
 ## License
 
-This project is open-sourced under the [MIT License](LICENSE).
+This project is open-sourced under the [Apache License, Version 2.0](LICENSE).
 
 Copyright (c) 2025 delta-sharing-iceberg contributors
