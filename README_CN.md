@@ -824,6 +824,6 @@ server/
 
 ## License
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+本项目采用 [Apache License, Version 2.0](LICENSE) 开源协议。
 
 Copyright (c) 2025 delta-sharing-iceberg contributors
