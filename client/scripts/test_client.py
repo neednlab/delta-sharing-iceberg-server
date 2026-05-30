@@ -263,8 +263,8 @@ def read_table(share_name: str, schema_name: str, table_name: str, mode: str = "
 if __name__ == "__main__":
     list_tables()
 
-    share_name = "cnslk_share"
+    share_name = "needn_share"
     schema_name = "shared_cnslk"
-    table_name = "s100"
+    table_name = "s1000"
 
-    #read_table(share_name, schema_name, table_name, mode="spark")
+    read_table(share_name, schema_name, table_name, mode="spark")

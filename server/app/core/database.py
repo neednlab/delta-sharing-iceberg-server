@@ -260,7 +260,6 @@ class Database:
         if _is_sqlite:
             self._enable_wal_mode()
 
-        self._migrate_drop_profile_columns()
 
     def _enable_wal_mode(self) -> None:
         """为 SQLite 数据库启用 WAL（Write-Ahead Logging）模式。
@@ -303,60 +302,6 @@ class Database:
             self._engine.dispose()
             self._engine = None
             logger.info("数据库引擎已释放")
-
-    def _migrate_drop_profile_columns(self) -> None:
-        """数据库迁移：移除 bearer_tokens 表中的 profile_content 和 profile_downloaded 列。
-
-        检测旧列是否存在，若存在则统计未下载的 profile 记录数并输出 WARNING 日志，
-        随后执行 ALTER TABLE DROP COLUMN 移除这些列。
-        此迁移确保服务端绝不持久化可还原的 token 明文。
-        """
-        if self._engine is None:
-            return
-
-        with self._engine.connect() as conn:
-            inspector_info = conn.execute(text("PRAGMA table_info('bearer_tokens')")).fetchall()
-            existing_columns = {row[1] for row in inspector_info}
-
-            if (
-                "profile_content" not in existing_columns
-                and "profile_downloaded" not in existing_columns
-            ):
-                logger.info("数据库迁移：profile 列已不存在，无需迁移")
-                return
-
-            # 迁移前统计未下载的 profile 记录数
-            if "profile_content" in existing_columns and "profile_downloaded" in existing_columns:
-                result = conn.execute(
-                    text(
-                        "SELECT COUNT(*) FROM bearer_tokens "
-                        "WHERE profile_downloaded = 0 AND profile_content IS NOT NULL"
-                    )
-                )
-                count = result.fetchone()[0]
-                if count > 0:
-                    logger.warning(
-                        f"数据库迁移：检测到 {count} 条未下载的 Profile 记录，"
-                        f"这些记录在迁移后将被永久丢弃。"
-                        f"这些 Token 本身仍然有效，管理员可撤销并重建。"
-                    )
-
-            # 执行 ALTER TABLE DROP COLUMN 迁移
-            with self._engine.begin() as trans_conn:
-                if "profile_content" in existing_columns:
-                    trans_conn.execute(
-                        text("ALTER TABLE bearer_tokens DROP COLUMN profile_content")
-                    )
-                    logger.info("数据库迁移：已删除 bearer_tokens.profile_content 列")
-
-                if "profile_downloaded" in existing_columns:
-                    trans_conn.execute(
-                        text("ALTER TABLE bearer_tokens DROP COLUMN profile_downloaded")
-                    )
-                    logger.info("数据库迁移：已删除 bearer_tokens.profile_downloaded 列")
-
-            logger.info("数据库迁移：profile 列清理完成")
-
 
 _global_db: Optional[Database] = None
 

@@ -332,9 +332,15 @@ async def query_table(
                 recipient_id=recipient_id,
             )
 
-        if iceberg_service.check_delete_files(
+        current_version = version_service.get_or_allocate_version(
+            share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
+        )
+
+        data_files, has_delete_files = iceberg_service.get_data_files(
             share, schema, table, snapshot_id, table_config=table_config
-        ):
+        )
+
+        if has_delete_files:
             error = DeltaSharingError(
                 error_code=ErrorCode.TABLE_NOT_SUPPORTED,
                 message="Table contains delete files which are not supported",
@@ -353,14 +359,6 @@ async def query_table(
                 iceberg_snapshot_id=snapshot_id,
                 recipient_id=recipient_id,
             )
-
-        current_version = version_service.get_or_allocate_version(
-            share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
-        )
-
-        data_files = iceberg_service.get_data_files(
-            share, schema, table, snapshot_id, table_config=table_config
-        )
         partition_columns = iceberg_service.get_partition_columns(
             share, schema, table, table_config=table_config
         )
@@ -419,7 +417,7 @@ async def query_table(
         )
 
         metadata_response = iceberg_service.get_table_metadata(
-            share, schema, table, table_config=table_config
+            share, schema, table, table_config=table_config, preloaded_data_files=data_files
         )
 
         if metadata_response is None:
