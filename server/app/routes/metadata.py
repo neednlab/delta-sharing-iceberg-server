@@ -26,6 +26,7 @@ from app.services.iceberg_service import IcebergService
 from app.services.share_service import ShareService
 from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.services.version_service import VersionService
+from app.services.table_service import TableService
 from app.models.share import TableMetadata
 from app.core.authentication import get_current_recipient
 from app.utils.audit_utils import raise_audited_error
@@ -37,6 +38,7 @@ iceberg_service = IcebergService()
 share_service = ShareService()
 auth_repo = RecipientShareRepository()
 version_service = VersionService()
+table_service = TableService()
 
 
 @router.get(
@@ -109,25 +111,27 @@ async def get_table_metadata(
             recipient_id=recipient_id,
         )
 
-    if not share_service.schema_exists(share, schema):
-        error = DeltaSharingError(
-            error_code=ErrorCode.SCHEMA_NOT_FOUND,
-            message=f"Schema not found: {schema}",
-            status_code=404,
-        )
-        raise_audited_error(
-            audit_logger,
-            error,
-            "GET_METADATA",
-            request,
-            operation_type="metadata",
-            share=share,
-            schema=schema,
-            table=table,
-            recipient_id=recipient_id,
-        )
-
-    if not share_service.table_exists(share, schema, table):
+    table_config = table_service.get_table_config(share, schema, table)
+    if table_config is None:
+        # get_table_config() 返回 None 表示 schema/table 不存在
+        # 额外查询 schema_exists() 区分 404 原因（仅在错误路径触发）
+        if not share_service.schema_exists(share, schema):
+            error = DeltaSharingError(
+                error_code=ErrorCode.SCHEMA_NOT_FOUND,
+                message=f"Schema not found: {schema}",
+                status_code=404,
+            )
+            raise_audited_error(
+                audit_logger,
+                error,
+                "GET_METADATA",
+                request,
+                operation_type="metadata",
+                share=share,
+                schema=schema,
+                table=table,
+                recipient_id=recipient_id,
+            )
         error = DeltaSharingError(
             error_code=ErrorCode.TABLE_NOT_FOUND,
             message=f"Table not found: {table}",

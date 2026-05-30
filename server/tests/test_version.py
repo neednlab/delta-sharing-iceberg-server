@@ -117,7 +117,10 @@ class TestVersionEndpoint:
             self.mock_share.share_exists.return_value = True
             self.mock_share.schema_exists.return_value = True
             self.mock_share.table_exists.return_value = True
-            self.mock_auth.check_access_with_share_validation.return_value = {"share_id": "fake-id", "authorized": True}
+            self.mock_auth.check_access_with_share_validation.return_value = {
+                "share_id": "fake-id",
+                "authorized": True,
+            }
             self.mock_iceberg.get_current_snapshot.return_value = {
                 "snapshot-id": 100,
                 "timestamp-ms": 1700000000000,
@@ -167,7 +170,10 @@ class TestVersionEndpoint:
         assert response.status_code == 404
 
     def test_get_version_access_denied_403(self, test_db, client_dp):
-        self.mock_auth.check_access_with_share_validation.return_value = {"share_id": "fake-id", "authorized": False}
+        self.mock_auth.check_access_with_share_validation.return_value = {
+            "share_id": "fake-id",
+            "authorized": False,
+        }
         response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
         assert response.status_code == 403
 

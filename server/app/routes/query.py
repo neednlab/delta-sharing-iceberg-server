@@ -123,47 +123,30 @@ async def query_table(
             recipient_id=recipient_id,
         )
 
-    if not share_service.schema_exists(share, schema):
-        error = DeltaSharingError(
-            error_code=ErrorCode.SCHEMA_NOT_FOUND,
-            message=f"Schema not found: {schema}",
-            status_code=404,
-        )
-        raise_audited_error(
-            audit_logger,
-            error,
-            "POST_QUERY",
-            request,
-            operation_type="query",
-            share=share,
-            schema=schema,
-            table=table,
-            recipient_id=recipient_id,
-        )
-
-    if not share_service.table_exists(share, schema, table):
+    table_config = table_service.get_table_config(share, schema, table)
+    if table_config is None:
+        # get_table_config() 返回 None 表示 schema/table 不存在
+        # 额外查询 schema_exists() 区分 404 原因（仅在错误路径触发）
+        if not share_service.schema_exists(share, schema):
+            error = DeltaSharingError(
+                error_code=ErrorCode.SCHEMA_NOT_FOUND,
+                message=f"Schema not found: {schema}",
+                status_code=404,
+            )
+            raise_audited_error(
+                audit_logger,
+                error,
+                "POST_QUERY",
+                request,
+                operation_type="query",
+                share=share,
+                schema=schema,
+                table=table,
+                recipient_id=recipient_id,
+            )
         error = DeltaSharingError(
             error_code=ErrorCode.TABLE_NOT_FOUND,
             message=f"Table not found: {table}",
-            status_code=404,
-        )
-        raise_audited_error(
-            audit_logger,
-            error,
-            "POST_QUERY",
-            request,
-            operation_type="query",
-            share=share,
-            schema=schema,
-            table=table,
-            recipient_id=recipient_id,
-        )
-
-    table_config = table_service.get_table_config(share, schema, table)
-    if not table_config:
-        error = DeltaSharingError(
-            error_code=ErrorCode.TABLE_NOT_FOUND,
-            message=f"Table config not found for {share}.{schema}.{table}",
             status_code=404,
         )
         raise_audited_error(

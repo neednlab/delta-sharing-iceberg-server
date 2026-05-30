@@ -265,7 +265,11 @@ class TestMetadataBaseline:
     """测试 GET /shares/{s}/schemas/{s}/tables/{t}/metadata 路由的 SQL 查询次数基线。"""
 
     def test_metadata_route_sql_count_baseline(self, client_dp_seeded, sql_collector):
-        """GET .../metadata → 记录 SQL 条数（Mock iceberg/version service）。"""
+        """GET .../metadata → 记录 SQL 条数（Mock iceberg/version service）。
+
+        优化后预期：总 SQL ≤ 3（含 token 认证），前置验证（不含 token）≤ 2。
+        get_table_config() 单次调用替代 schema_exists() + table_exists() 两次查询。
+        """
         mock_iceberg = MagicMock()
         mock_iceberg.get_current_snapshot.return_value = {
             "snapshot-id": "snap-001",
@@ -290,20 +294,36 @@ class TestMetadataBaseline:
             )
 
         sql_count = len(sql_collector.queries)
-        print(f"\n[SQL COUNT] metadata: {sql_count} queries")
+        pre_validation_queries = [
+            q for q in sql_collector.queries if "bearer_tokens" not in q.lower()
+        ]
+        pre_validation_count = len(pre_validation_queries)
+
+        print(
+            f"\n[SQL COUNT] metadata: {sql_count} queries (pre-validation: {pre_validation_count})"
+        )
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
-        assert response.status_code == 200, f"metadata returned {response.status_code}: {response.text}"
+        assert response.status_code == 200, (
+            f"metadata returned {response.status_code}: {response.text}"
+        )
 
-        assert sql_count <= 6, f"Expected ≤6 SQL queries for metadata, got {sql_count}"
+        assert sql_count <= 3, f"Expected ≤3 SQL queries for metadata, got {sql_count}"
+        assert pre_validation_count <= 3, (
+            f"Expected ≤3 pre-validation queries for metadata, got {pre_validation_count}"
+        )
 
 
 class TestQueryBaseline:
     """测试 POST /shares/{s}/schemas/{s}/tables/{t}/query 路由的 SQL 查询次数基线。"""
 
     def test_query_route_sql_count_baseline(self, client_dp_seeded, sql_collector):
-        """POST .../query → 记录 SQL 条数（Mock iceberg/table/version/predicate service）。"""
+        """POST .../query → 记录 SQL 条数（Mock iceberg/version/predicate service）。
+
+        优化后预期：总 SQL ≤ 3（含 token 认证），前置验证（不含 token）≤ 2。
+        get_table_config() 单次调用替代 schema_exists() + table_exists() 两次查询。
+        """
         mock_iceberg = MagicMock()
         mock_iceberg.get_current_snapshot.return_value = {
             "snapshot-id": "snap-001",
@@ -317,11 +337,6 @@ class TestQueryBaseline:
             "schema_string": "{}",
             "partition_columns": [],
         }
-        mock_table = MagicMock()
-        mock_table.get_table_config.return_value = {
-            "name": "test_table",
-            "type": "iceberg",
-        }
         mock_version = MagicMock()
         mock_version.get_or_allocate_version.return_value = 1
         mock_predicate = MagicMock()
@@ -332,7 +347,6 @@ class TestQueryBaseline:
 
         with (
             patch("app.routes.query.iceberg_service", mock_iceberg),
-            patch("app.routes.query.table_service", mock_table),
             patch("app.routes.query.version_service", mock_version),
             patch("app.routes.query.predicate_service", mock_predicate),
         ):
@@ -342,10 +356,91 @@ class TestQueryBaseline:
             )
 
         sql_count = len(sql_collector.queries)
-        print(f"\n[SQL COUNT] query: {sql_count} queries")
+        pre_validation_queries = [
+            q for q in sql_collector.queries if "bearer_tokens" not in q.lower()
+        ]
+        pre_validation_count = len(pre_validation_queries)
+
+        print(f"\n[SQL COUNT] query: {sql_count} queries (pre-validation: {pre_validation_count})")
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
-        assert response.status_code == 200, f"query returned {response.status_code}: {response.text}"
+        assert response.status_code == 200, (
+            f"query returned {response.status_code}: {response.text}"
+        )
 
-        assert sql_count <= 6, f"Expected ≤6 SQL queries for query, got {sql_count}"
+        assert sql_count <= 3, f"Expected ≤3 SQL queries for query, got {sql_count}"
+        assert pre_validation_count <= 3, (
+            f"Expected ≤3 pre-validation queries for query, got {pre_validation_count}"
+        )
+
+
+class TestQueryRouteErrors:
+    """测试 query 路由在 schema/table 不存在时的错误处理。
+
+    get_table_config() 返回 None 后，仅在 schema 不存在时触发额外 schema_exists() 查询。
+    """
+
+    def test_query_route_schema_not_found(self, client_dp_seeded, sql_collector):
+        """POST .../query → schema 不存在时返回 SCHEMA_NOT_FOUND。
+
+        预期：触发 get_table_config() (2条) + schema_exists() (2条) + auth (1条) = 5条 SQL。
+        """
+        mock_iceberg = MagicMock()
+        mock_iceberg.get_current_snapshot.return_value = {"snapshot-id": "snap-001"}
+        mock_version = MagicMock()
+        mock_predicate = MagicMock()
+
+        sql_collector.reset()
+
+        with (
+            patch("app.routes.query.iceberg_service", mock_iceberg),
+            patch("app.routes.query.version_service", mock_version),
+            patch("app.routes.query.predicate_service", mock_predicate),
+        ):
+            response = client_dp_seeded.post(
+                "/delta-sharing/shares/test_share/schemas/nonexistent_schema/tables/test_table/query",
+                json={},
+            )
+
+        sql_count = len(sql_collector.queries)
+        print(f"\n[SQL COUNT] query schema_not_found: {sql_count} queries")
+        for i, q in enumerate(sql_collector.queries):
+            print(f"  [{i + 1}] {q[:120]}...")
+
+        assert response.status_code == 404, (
+            f"Expected 404 for missing schema, got {response.status_code}: {response.text}"
+        )
+        assert sql_count <= 5, f"Expected ≤5 SQL queries for schema_not_found, got {sql_count}"
+
+    def test_query_route_table_not_found(self, client_dp_seeded, sql_collector):
+        """POST .../query → table 不存在时返回 TABLE_NOT_FOUND。
+
+        预期：get_table_config() (2条) + schema_exists() (2条) + auth (1条) = 5条 SQL。
+        """
+        mock_iceberg = MagicMock()
+        mock_iceberg.get_current_snapshot.return_value = {"snapshot-id": "snap-001"}
+        mock_version = MagicMock()
+        mock_predicate = MagicMock()
+
+        sql_collector.reset()
+
+        with (
+            patch("app.routes.query.iceberg_service", mock_iceberg),
+            patch("app.routes.query.version_service", mock_version),
+            patch("app.routes.query.predicate_service", mock_predicate),
+        ):
+            response = client_dp_seeded.post(
+                "/delta-sharing/shares/test_share/schemas/test_schema/tables/nonexistent_table/query",
+                json={},
+            )
+
+        sql_count = len(sql_collector.queries)
+        print(f"\n[SQL COUNT] query table_not_found: {sql_count} queries")
+        for i, q in enumerate(sql_collector.queries):
+            print(f"  [{i + 1}] {q[:120]}...")
+
+        assert response.status_code == 404, (
+            f"Expected 404 for missing table, got {response.status_code}: {response.text}"
+        )
+        assert sql_count <= 5, f"Expected ≤5 SQL queries for table_not_found, got {sql_count}"

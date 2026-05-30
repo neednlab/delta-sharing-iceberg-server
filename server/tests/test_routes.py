@@ -58,7 +58,10 @@ class TestSchemaEndpoint:
     @patch("app.routes.shares.auth_repo")
     def test_list_schemas_success(self, mock_auth, mock_service, client_dp):
         mock_service.share_exists.return_value = True
-        mock_auth.check_access_with_share_validation.return_value = {"share_id": "fake-id", "authorized": True}
+        mock_auth.check_access_with_share_validation.return_value = {
+            "share_id": "fake-id",
+            "authorized": True,
+        }
         mock_service.list_schemas.return_value = {
             "items": [{"name": "schema1", "share": "share1"}],
             "next_page_token": None,
@@ -84,7 +87,10 @@ class TestTableEndpoint:
     @patch("app.routes.shares.auth_repo")
     def test_list_tables_schema_not_found(self, mock_auth, mock_service, client_dp):
         mock_service.share_exists.return_value = True
-        mock_auth.check_access_with_share_validation.return_value = {"share_id": "fake-id", "authorized": True}
+        mock_auth.check_access_with_share_validation.return_value = {
+            "share_id": "fake-id",
+            "authorized": True,
+        }
         mock_service.schema_exists.return_value = False
 
         response = client_dp.get("/delta-sharing/shares/share1/schemas/unknown/tables")

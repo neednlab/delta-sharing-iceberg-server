@@ -153,9 +153,10 @@ def _make_auth_mock(return_value=None, side_effect=None, only_allow_share=None):
     elif side_effect is not None:
         mock.check_access_with_share_validation.side_effect = side_effect
     elif only_allow_share is not None:
-        mock.check_access_with_share_validation.side_effect = (
-            lambda sn, rid: {"share_id": "fake-id", "authorized": sn.lower() == only_allow_share}
-        )
+        mock.check_access_with_share_validation.side_effect = lambda sn, rid: {
+            "share_id": "fake-id",
+            "authorized": sn.lower() == only_allow_share,
+        }
     return mock
 
 
@@ -171,18 +172,14 @@ class TestAuthenticationRequired:
 
     def test_list_shares_with_invalid_auth_format(self, client):
         """GET /shares - Authorization header 格式无效时返回 401。"""
-        response = client.get(
-            "/delta-sharing/shares", headers={"Authorization": "InvalidFormat"}
-        )
+        response = client.get("/delta-sharing/shares", headers={"Authorization": "InvalidFormat"})
         assert response.status_code == 401
         data = response.json()
         assert data["errorCode"] == "AUTHENTICATION_HEADER_INVALID"
 
     def test_list_shares_with_empty_bearer_token(self, client):
         """GET /shares - Bearer token 为空时返回 401。"""
-        response = client.get(
-            "/delta-sharing/shares", headers={"Authorization": "Bearer "}
-        )
+        response = client.get("/delta-sharing/shares", headers={"Authorization": "Bearer "})
         assert response.status_code == 401
         data = response.json()
         assert data["errorCode"] == "TOKEN_MALFORMED"
@@ -216,9 +213,7 @@ class TestAuthenticationRequired:
 
     def test_query_table_without_auth(self, client):
         """POST /shares/{share}/schemas/{schema}/tables/{table}/query - 无认证时返回 401。"""
-        response = client.post(
-            "/delta-sharing/shares/myshare/schemas/myschema/tables/ice_t1/query"
-        )
+        response = client.post("/delta-sharing/shares/myshare/schemas/myschema/tables/ice_t1/query")
         assert response.status_code == 401
 
 
@@ -367,9 +362,7 @@ class TestShareAuthorization:
         mock_share_service,
     ):
         """recipient_b 有权访问 myshare，用它的 token 访问 myshare 时应成功。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
 
         with (
             patch("app.routes.shares.share_service", mock_share_service),
@@ -396,9 +389,7 @@ class TestAuthorizedAccess:
         mock_share_service,
     ):
         """有效的 token + 已授权的 share + mock，可以访问 list_schemas。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
 
         with (
             patch("app.routes.shares.share_service", mock_share_service),
@@ -417,9 +408,7 @@ class TestAuthorizedAccess:
         mock_share_service,
     ):
         """有效的 token + 已授权的 share + mock，可以访问 list_tables。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
 
         with (
             patch("app.routes.shares.share_service", mock_share_service),
@@ -438,9 +427,14 @@ class TestAuthorizedAccess:
         mock_share_service,
     ):
         """有效的 token + 已授权的 share + mock，可以访问 metadata。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
+        mock_table = MagicMock()
+        mock_table.get_table_config.return_value = {
+            "name": "ice_t1",
+            "location": "cosn://bucket/ice_t1",
+            "bucket": "bucket",
+            "region": "ap-shanghai",
+        }
         mock_iceberg = MagicMock()
         mock_iceberg.get_current_snapshot.return_value = {
             "snapshot-id": "snap-001",
@@ -457,6 +451,7 @@ class TestAuthorizedAccess:
         with (
             patch("app.routes.metadata.share_service", mock_share_service),
             patch("app.routes.metadata.auth_repo", mock_auth),
+            patch("app.routes.metadata.table_service", mock_table),
             patch("app.routes.metadata.iceberg_service", mock_iceberg),
             patch("app.routes.metadata.version_service", mock_version),
         ):
@@ -473,9 +468,7 @@ class TestAuthorizedAccess:
         mock_share_service,
     ):
         """有效的 token + 已授权的 share + mock，可以访问 query 端点。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
         mock_table = MagicMock()
         mock_table.get_table_config.return_value = {
             "name": "ice_t1",
@@ -521,9 +514,7 @@ class TestAuthorizedAccess:
         mock_share_service,
     ):
         """recipient_b 有权访问 myshare 和 needn_share，可以访问两者。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
 
         with (
             patch("app.routes.shares.share_service", mock_share_service),
@@ -578,9 +569,7 @@ class TestShareListing:
         mock_share_service,
     ):
         """recipient_b 有权访问多个 share，验证返回有效的响应结构。"""
-        mock_auth = _make_auth_mock(
-            return_value={"share_id": "fake-id", "authorized": True}
-        )
+        mock_auth = _make_auth_mock(return_value={"share_id": "fake-id", "authorized": True})
 
         with (
             patch("app.routes.shares.share_service", mock_share_service),
