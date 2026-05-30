@@ -453,8 +453,7 @@ class TestAuthorizedAccess:
             "snapshot-id": "snap-001",
             "timestamp": 1000,
         }
-        mock_iceberg.check_delete_files.return_value = False
-        mock_iceberg.get_data_files.return_value = []
+        mock_iceberg.get_data_files.return_value = ([], False)
         mock_iceberg.get_partition_columns.return_value = []
         mock_iceberg.build_file_objects.return_value = []
         mock_iceberg.get_table_metadata.return_value = {

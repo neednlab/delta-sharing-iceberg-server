@@ -17,9 +17,10 @@ import re
 import io
 import uuid
 import hashlib
+import warnings
 from datetime import datetime
 from contextvars import ContextVar
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from loguru import logger
 
 
@@ -942,6 +943,7 @@ class IcebergService:
         schema_name: str,
         table_name: str,
         table_config: Optional[Dict[str, Any]] = None,
+        preloaded_data_files: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Dict[str, Any]]:
         """获取表的完整元数据。
 
@@ -950,6 +952,10 @@ class IcebergService:
             schema_name: Schema 名称。
             table_name: 表名称。
             table_config: 预加载的表配置字典，若为 None 则内部加载。
+            preloaded_data_files: 预加载的数据文件列表。当调用方在之前已通过
+                get_data_files() 获取了数据文件列表时，可通过此参数传入，
+                避免方法内部重复调用 get_data_files() 导致的额外 manifest 扫描。
+                若为 None，方法内部将自行调用 get_data_files() 获取。
 
         Returns:
             包含表元数据的字典，包含 id、format、schema_string、partition_columns、
@@ -978,9 +984,12 @@ class IcebergService:
 
         table_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}"))
 
-        data_files = self.get_data_files(
-            share_name, schema_name, table_name, snapshot_id, table_config=table_config
-        )
+        if preloaded_data_files is not None:
+            data_files = preloaded_data_files
+        else:
+            data_files, _ = self.get_data_files(
+                share_name, schema_name, table_name, snapshot_id, table_config=table_config
+            )
 
         total_size = sum(f.get("file_size", 0) for f in data_files)
         num_files = len(data_files)
@@ -1138,65 +1147,6 @@ class IcebergService:
         _manifest_list_cache.set(cache_key, manifest_paths)
         return manifest_paths
 
-    def check_delete_files(
-        self,
-        share_name: str,
-        schema_name: str,
-        table_name: str,
-        snapshot_id: int,
-        table_config: Optional[Dict[str, Any]] = None,
-    ) -> bool:
-        """检查指定快照是否包含删除文件。
-
-        Args:
-            share_name: Share 名称。
-            schema_name: Schema 名称。
-            table_name: 表名称。
-            snapshot_id: 快照 ID。
-            table_config: 预加载的表配置字典，若为 None 则内部加载。
-
-        Returns:
-            如果存在删除文件返回 True，否则返回 False。
-        """
-        if table_config is None:
-            table_config = self._get_table_config(share_name, schema_name, table_name)
-        if not table_config:
-            return False
-
-        metadata = self._load_metadata_from_cos(
-            table_config["location"], share_name, schema_name, table_name
-        )
-
-        snapshots = metadata.get("snapshots", [])
-        target_snapshot = None
-        snapshot_id_int = int(snapshot_id) if snapshot_id is not None else None
-        for snapshot in snapshots:
-            snap_id = snapshot.get("snapshot-id")
-            if snap_id is not None and int(snap_id) == snapshot_id_int:
-                target_snapshot = snapshot
-                break
-
-        if not target_snapshot:
-            return False
-
-        manifest_list_location = target_snapshot.get("manifest-list")
-        if not manifest_list_location:
-            return False
-
-        bucket, _ = self._parse_cos_path(manifest_list_location)
-        manifest_paths = self._get_manifest_list_entries(bucket, manifest_list_location)
-
-        for manifest_path in manifest_paths:
-            entries = self._parse_avro_manifest(bucket, manifest_path)
-            for entry in entries:
-                content = entry.get("content")
-                if content == 1:
-                    return True
-                if content == 2:
-                    return True
-
-        return False
-
     def _get_field_id_mapping(self, metadata: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:
         """构建字段 ID 到字段名称和类型的映射。
 
@@ -1322,8 +1272,11 @@ class IcebergService:
         table_name: str,
         snapshot_id: int,
         table_config: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
-        """获取指定快照的数据文件列表。
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        """获取指定快照的数据文件列表，同时检测是否存在删除文件。
+
+        在单次 manifest 遍历中同时完成数据文件收集和删除文件检测，
+        避免对 manifest-list 和全量 manifest 的重复扫描。
 
         Args:
             share_name: Share 名称。
@@ -1333,13 +1286,15 @@ class IcebergService:
             table_config: 预加载的表配置字典，若为 None 则内部加载。
 
         Returns:
-            数据文件信息列表，每个文件包含 file_path、file_size、record_count、
-            partition_values、min_values、max_values、null_count。
+            (data_files, has_delete_files) 元组：
+            - data_files: 数据文件信息列表，每个文件包含 file_path、file_size、
+              record_count、partition_values、min_values、max_values、null_count。
+            - has_delete_files: 是否检测到删除文件（content=1 或 content=2 的 entry）。
         """
         if table_config is None:
             table_config = self._get_table_config(share_name, schema_name, table_name)
         if not table_config:
-            return []
+            return [], False
 
         metadata = self._load_metadata_from_cos(
             table_config["location"], share_name, schema_name, table_name
@@ -1358,22 +1313,28 @@ class IcebergService:
                 break
 
         if not target_snapshot:
-            return []
+            return [], False
 
         manifest_list_location = target_snapshot.get("manifest-list")
         if not manifest_list_location:
-            return []
+            return [], False
 
         bucket, _ = self._parse_cos_path(manifest_list_location)
         manifest_paths = self._get_manifest_list_entries(bucket, manifest_list_location)
 
         data_files = []
+        has_delete_files = False
 
         table_location = table_config.get("location", "").rstrip("/")
 
         for manifest_path in manifest_paths:
             entries = self._parse_avro_manifest(bucket, manifest_path)
             for entry in entries:
+                # 同步检测删除文件：content=1 为 position delete，content=2 为 equality delete
+                content = entry.get("content")
+                if content == 1 or content == 2:
+                    has_delete_files = True
+
                 entry_status = entry.get("status")
                 if entry_status == 2:
                     continue
@@ -1452,7 +1413,7 @@ class IcebergService:
             f"Total data files found: {len(data_files)} "
             f"for table {share_name}.{schema_name}.{table_name}"
         )
-        return data_files
+        return data_files, has_delete_files
 
     def build_file_objects(
         self,
@@ -1466,6 +1427,9 @@ class IcebergService:
 
         为每个过滤后的数据文件生成预签名 COS URL、SHA256 ID、
         统计信息和过期时间戳，组装为符合 Delta Sharing 协议的文件对象。
+
+        注意: COS 预签名 URL 生成是纯本地 HMAC-SHA1 计算，零网络 I/O，
+        因此使用简单串行循环而非线程池并发，避免不必要的调度开销。
 
         支持时间旅行查询：当 query_version 不为 None 时，
         File 对象的 version 字段使用 query_version（历史版本号），
