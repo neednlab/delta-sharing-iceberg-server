@@ -137,9 +137,7 @@ def heat_up(url: str, bearer_token: str, timeout: float = 120.0) -> bool:
         return False
 
 
-def run_benchmark(
-    url: str, bearer_token: str, rounds: int = 3, timeout: float = 120.0
-) -> dict:
+def run_benchmark(url: str, bearer_token: str, rounds: int = 3, timeout: float = 120.0) -> dict:
     """运行基准测试，记录每次端到端查询耗时。
 
     连续发送 rounds 次正式查询请求，使用 time.perf_counter()
@@ -218,9 +216,7 @@ def main():
     解析命令行参数，加载 credential，执行预热和基准测试，
     最后以 JSON 格式输出结果。
     """
-    parser = argparse.ArgumentParser(
-        description="Delta Sharing Query API Performance Benchmark"
-    )
+    parser = argparse.ArgumentParser(description="Delta Sharing Query API Performance Benchmark")
     parser.add_argument(
         "--credential",
         default=None,

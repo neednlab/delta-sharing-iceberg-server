@@ -16,7 +16,7 @@ from app.core.audit import get_audit_logger
 from app.services.iceberg_service import IcebergService
 from app.services.share_service import ShareService
 from app.services.version_service import VersionService
-from app.services.authorization_service import AuthorizationService
+from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.core.authentication import get_current_recipient
 from app.utils.request_utils import get_client_ip
 from app.utils.audit_utils import raise_audited_error
@@ -28,7 +28,7 @@ router = APIRouter(prefix="", tags=["version"])
 iceberg_service = IcebergService()
 share_service = ShareService()
 version_service = VersionService()
-authorization_service = AuthorizationService()
+auth_repo = RecipientShareRepository()
 
 
 @router.get("/shares/{share}/schemas/{schema}/tables/{table}/version")
@@ -60,7 +60,8 @@ async def get_table_version(
     """
     audit_logger = get_audit_logger()
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -77,7 +78,7 @@ async def get_table_version(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(

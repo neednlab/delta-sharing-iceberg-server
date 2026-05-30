@@ -260,7 +260,6 @@ class Database:
         if _is_sqlite:
             self._enable_wal_mode()
 
-
     def _enable_wal_mode(self) -> None:
         """为 SQLite 数据库启用 WAL（Write-Ahead Logging）模式。
 
@@ -302,6 +301,7 @@ class Database:
             self._engine.dispose()
             self._engine = None
             logger.info("数据库引擎已释放")
+
 
 _global_db: Optional[Database] = None
 

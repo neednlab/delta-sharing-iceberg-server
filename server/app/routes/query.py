@@ -26,7 +26,7 @@ from app.utils.response_utils import generate_ndjson_response
 from app.utils.time_utils import parse_iso8601_timestamp
 from app.services.iceberg_service import IcebergService
 from app.services.share_service import ShareService
-from app.services.authorization_service import AuthorizationService
+from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.services.version_service import VersionService
 from app.services.predicate_service import PredicateService
 from app.services.table_service import TableService
@@ -37,7 +37,7 @@ router = APIRouter(prefix="", tags=["query"])
 
 iceberg_service = IcebergService()
 share_service = ShareService()
-authorization_service = AuthorizationService()
+auth_repo = RecipientShareRepository()
 version_service = VersionService()
 predicate_service = PredicateService()
 table_service = TableService()
@@ -86,7 +86,8 @@ async def query_table(
 
     capabilities = parse_delta_sharing_capabilities(delta_sharing_capabilities)
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         error = DeltaSharingError(
             error_code=ErrorCode.SHARE_NOT_FOUND,
             message=f"Share not found: {share}",
@@ -104,7 +105,7 @@ async def query_table(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         error = DeltaSharingError(
             error_code=ErrorCode.SHARE_ACCESS_DENIED,
             message=f"Access denied to share: {share}",

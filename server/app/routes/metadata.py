@@ -24,7 +24,7 @@ from app.core.delta_capabilities import (
 )
 from app.services.iceberg_service import IcebergService
 from app.services.share_service import ShareService
-from app.services.authorization_service import AuthorizationService
+from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.services.version_service import VersionService
 from app.models.share import TableMetadata
 from app.core.authentication import get_current_recipient
@@ -35,7 +35,7 @@ router = APIRouter(prefix="", tags=["metadata"])
 
 iceberg_service = IcebergService()
 share_service = ShareService()
-authorization_service = AuthorizationService()
+auth_repo = RecipientShareRepository()
 version_service = VersionService()
 
 
@@ -72,7 +72,8 @@ async def get_table_metadata(
 
     capabilities = parse_delta_sharing_capabilities(delta_sharing_capabilities)
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         error = DeltaSharingError(
             error_code=ErrorCode.SHARE_NOT_FOUND,
             message=f"Share not found: {share}",
@@ -90,7 +91,7 @@ async def get_table_metadata(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         error = DeltaSharingError(
             error_code=ErrorCode.SHARE_ACCESS_DENIED,
             message=f"Access denied to share: {share}",
