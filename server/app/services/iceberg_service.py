@@ -17,16 +17,9 @@ import re
 import io
 import uuid
 import hashlib
-import warnings
 from datetime import datetime
-from contextvars import ContextVar
 from typing import Optional, Dict, Any, List, Tuple
 from loguru import logger
-
-
-_metadata_location_cache: ContextVar[Optional[Dict[str, str]]] = ContextVar(
-    "metadata_location_cache", default=None
-)
 
 from pyiceberg.schema import Schema as IcebergSchema
 from pyiceberg.types import (
@@ -73,7 +66,12 @@ from app.core.cos_client import get_cos_client
 from app.core.dlc_client import init_dlc_client, DLCClientWrapper, DLCAPIError
 from app.core.database import get_database
 from app.core.errors import DeltaSharingError, ErrorCode
-from app.core.cache import _metadata_content_cache, _manifest_list_cache, _manifest_cache
+from app.core.cache import (
+    _metadata_location_cache,
+    _metadata_content_cache,
+    _manifest_list_cache,
+    _manifest_cache,
+)
 
 
 class IcebergSchemaConverter:
@@ -473,13 +471,10 @@ class IcebergService:
             元数据位置 URL，如果获取失败则返回 None。
         """
         cache_key = self._get_table_cache_key(share_name, schema_name, table_name)
-        request_cache = _metadata_location_cache.get()
-        if request_cache is None:
-            request_cache = {}
-            _metadata_location_cache.set(request_cache)
-        if cache_key in request_cache:
+        cached = _metadata_location_cache.get(cache_key)
+        if cached is not None:
             logger.debug(f"Using request-cached metadata_location for table {cache_key}")
-            return request_cache[cache_key]
+            return cached
 
         if not self._dlc_client:
             return None
@@ -511,8 +506,7 @@ class IcebergService:
             api_response = self._dlc_client.describe_table(database_name, table_name_for_dlc)
             metadata_location = DLCClientWrapper.extract_metadata_location(api_response)
             if metadata_location:
-                request_cache[cache_key] = metadata_location
-                _metadata_location_cache.set(request_cache)
+                _metadata_location_cache.set(cache_key, metadata_location)
                 logger.info(f"DLC API returned metadata_location: {metadata_location}")
             else:
                 logger.warning(f"DLC API response missing metadata_location: {api_response}")
@@ -920,10 +914,7 @@ class IcebergService:
             缓存的 metadata 字典，如果缓存未命中则返回 None。
         """
         cache_key_for_location = self._get_table_cache_key(share_name, schema_name, table_name)
-        request_cache = _metadata_location_cache.get()
-        metadata_location = None
-        if request_cache is not None:
-            metadata_location = request_cache.get(cache_key_for_location)
+        metadata_location = _metadata_location_cache.get(cache_key_for_location)
 
         if not metadata_location:
             metadata_location = self._get_metadata_location_via_dlc(
