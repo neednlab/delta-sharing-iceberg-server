@@ -96,6 +96,10 @@ class RequestCacheManager:
         self._var.set(None)
 
 
+# 请求级 DLC metadata_location 缓存
+# 缓存键: "share.schema.table"  →  缓存值: str（DLC API 返回的 metadata_location）
+_metadata_location_cache = RequestCacheManager("metadata_location_cache")
+
 # 请求级 metadata JSON 内容缓存
 # 缓存键: "{bucket}/{key}"  →  缓存值: Dict[str, Any]（已解析的 JSON）
 _metadata_content_cache = RequestCacheManager("metadata_content_cache")
@@ -110,6 +114,7 @@ _manifest_cache = RequestCacheManager("manifest_cache")
 
 # 所有请求级缓存管理器列表，供 CacheMiddleware 管理和清理
 _request_cache_managers: List[RequestCacheManager] = [
+    _metadata_location_cache,
     _metadata_content_cache,
     _manifest_list_cache,
     _manifest_cache,
