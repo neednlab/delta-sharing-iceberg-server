@@ -237,9 +237,7 @@ def _flatten_record(entry: dict) -> dict:
     # 保留异常信息
     exception = record.get("exception")
     if exception is not None:
-        result["exception"] = (
-            str(exception) if not isinstance(exception, str) else exception
-        )
+        result["exception"] = str(exception) if not isinstance(exception, str) else exception
 
     return result
 
@@ -307,9 +305,7 @@ async def list_audit_logs(request: Request = None):
         logger.exception("Unexpected error scanning log files")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_LIST_AUDIT_LOGS",
             request=request,
             category="admin",
@@ -499,9 +495,7 @@ async def get_audit_log_entries(
         logger.exception(f"Unexpected error reading log entries: {log_type} ({date})")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_GET_AUDIT_LOG_ENTRIES",
             request=request,
             category="admin",

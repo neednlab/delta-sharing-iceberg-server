@@ -150,11 +150,7 @@ class COSClient:
         except Exception as e:
             error_msg = str(e)
             # 区分 404 与其他错误
-            if (
-                "404" in error_msg
-                or "NoSuchKey" in error_msg
-                or "NoSuchBucket" in error_msg
-            ):
+            if "404" in error_msg or "NoSuchKey" in error_msg or "NoSuchBucket" in error_msg:
                 logger.warning(
                     "COS head_object not found: bucket={} key={} error={}",
                     bucket,
@@ -182,9 +178,7 @@ class COSClient:
                 )
             return None
 
-    def get_object(
-        self, bucket: str, key: str, start: int = 0, end: int = 0
-    ) -> Optional[bytes]:
+    def get_object(self, bucket: str, key: str, start: int = 0, end: int = 0) -> Optional[bytes]:
         """读取对象内容。
 
         支持指定字节范围的部分读取。
@@ -202,9 +196,7 @@ class COSClient:
             client = self.get_client()
             req_start_time = time.time()
             if end > start:
-                response = client.get_object(
-                    Bucket=bucket, Key=key, Range=f"bytes={start}-{end}"
-                )
+                response = client.get_object(Bucket=bucket, Key=key, Range=f"bytes={start}-{end}")
             else:
                 response = client.get_object(Bucket=bucket, Key=key)
             elapsed_ms = int((time.time() - req_start_time) * 1000)
@@ -280,9 +272,7 @@ class COSClient:
                     details={"bucket": bucket, "key": key},
                 )
 
-    def list_objects(
-        self, bucket: str, prefix: str = "", MaxKeys: int = 100
-    ) -> Dict[str, Any]:
+    def list_objects(self, bucket: str, prefix: str = "", MaxKeys: int = 100) -> Dict[str, Any]:
         """列出存储桶中的对象。
 
         Args:
@@ -296,9 +286,7 @@ class COSClient:
         try:
             client = self.get_client()
             start_time_req = time.time()
-            response = client.list_objects(
-                Bucket=bucket, Prefix=prefix, MaxKeys=MaxKeys
-            )
+            response = client.list_objects(Bucket=bucket, Prefix=prefix, MaxKeys=MaxKeys)
             elapsed_ms = int((time.time() - start_time_req) * 1000)
 
             # INFO 级别：记录对象列表查询结果

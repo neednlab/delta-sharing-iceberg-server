@@ -32,9 +32,7 @@ def _generate_table_id(share_name: str, schema_name: str, table_name: str) -> st
     Returns:
         基于表名称的 UUID 字符串。
     """
-    return str(
-        uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}")
-    )
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}"))
 
 
 def _generate_share_id(share_name: str) -> str:
@@ -88,9 +86,7 @@ class ShareService:
 
             auth_service = AuthorizationService()
             authorized_shares = auth_service.get_recipient_shares(recipient_id)
-            share_names = sorted(
-                [s for s in all_shares.keys() if s in authorized_shares]
-            )
+            share_names = sorted([s for s in all_shares.keys() if s in authorized_shares])
         else:
             share_names = sorted(all_shares.keys())
 
@@ -104,11 +100,7 @@ class ShareService:
         if max_results and max_results > 0:
             shares_subset = share_names[offset : offset + max_results]
             next_offset = offset + len(shares_subset)
-            next_token = (
-                _encode_page_token(next_offset)
-                if next_offset < len(share_names)
-                else None
-            )
+            next_token = _encode_page_token(next_offset) if next_offset < len(share_names) else None
         else:
             shares_subset = share_names[offset:]
             next_token = None
@@ -167,9 +159,7 @@ class ShareService:
         if max_results and max_results > 0:
             schemas_subset = schema_names[:max_results]
             next_offset = offset + len(schemas_subset)
-            next_token = (
-                _encode_page_token(next_offset) if next_offset < len(schemas) else None
-            )
+            next_token = _encode_page_token(next_offset) if next_offset < len(schemas) else None
         else:
             schemas_subset = schema_names
             next_token = None
@@ -220,9 +210,7 @@ class ShareService:
         if max_results and max_results > 0:
             tables_subset = table_names[:max_results]
             next_offset = offset + len(tables_subset)
-            next_token = (
-                _encode_page_token(next_offset) if next_offset < len(tables) else None
-            )
+            next_token = _encode_page_token(next_offset) if next_offset < len(tables) else None
         else:
             tables_subset = table_names
             next_token = None
@@ -286,9 +274,7 @@ class ShareService:
                     "name": table_name_lower,
                     "schema": schema_name_lower,
                     "share": share_name,
-                    "id": _generate_table_id(
-                        share_name, schema_name_lower, table_name_lower
-                    ),
+                    "id": _generate_table_id(share_name, schema_name_lower, table_name_lower),
                     "shareId": _generate_share_id(share_name),
                 }
                 if table_config.location:
@@ -312,9 +298,7 @@ class ShareService:
         if max_results and max_results > 0:
             tables_subset = all_tables[:max_results]
             next_offset = offset + len(tables_subset)
-            next_token = (
-                _encode_page_token(next_offset) if next_offset < total_tables else None
-            )
+            next_token = _encode_page_token(next_offset) if next_offset < total_tables else None
         else:
             tables_subset = all_tables
             next_token = None

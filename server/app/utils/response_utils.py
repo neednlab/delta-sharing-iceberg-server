@@ -75,22 +75,14 @@ def generate_ndjson_response(
                 )
                 yield json.dumps(delta_file.to_delta_dict(), ensure_ascii=False) + "\n"
         else:
-            yield (
-                json.dumps({"protocol": protocol.model_dump()}, ensure_ascii=False)
-                + "\n"
-            )
-            yield (
-                json.dumps({"metaData": metadata.model_dump()}, ensure_ascii=False)
-                + "\n"
-            )
+            yield (json.dumps({"protocol": protocol.model_dump()}, ensure_ascii=False) + "\n")
+            yield (json.dumps({"metaData": metadata.model_dump()}, ensure_ascii=False) + "\n")
 
             for file_data in files:
                 yield json.dumps({"file": file_data}, ensure_ascii=False) + "\n"
 
         if capabilities and capabilities.include_end_stream_action:
-            end_stream_action = EndStreamAction(
-                min_url_expiration_timestamp=min_url_expiration
-            )
+            end_stream_action = EndStreamAction(min_url_expiration_timestamp=min_url_expiration)
             yield json.dumps(end_stream_action.to_delta_dict()) + "\n"
 
     response_headers = {
@@ -99,9 +91,7 @@ def generate_ndjson_response(
     }
 
     if capabilities:
-        response_headers["Delta-Sharing-Capabilities"] = (
-            capabilities.to_response_header()
-        )
+        response_headers["Delta-Sharing-Capabilities"] = capabilities.to_response_header()
 
     return StreamingResponse(
         generate(), media_type="application/x-ndjson", headers=response_headers

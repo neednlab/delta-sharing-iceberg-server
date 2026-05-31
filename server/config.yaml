@@ -4,6 +4,8 @@ server:
   admin_host: "127.0.0.1"
   admin_port: 8089
   api_prefix: "/delta-sharing"
+  max_request_body_size_mb: 1
+  admin_max_request_body_size_mb: 10
 
 cos:
   region: "ap-shanghai"

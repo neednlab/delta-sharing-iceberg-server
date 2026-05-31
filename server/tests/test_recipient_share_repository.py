@@ -108,9 +108,7 @@ class TestGrant:
             share_id=share["share_id"],
         )
 
-        uuid_pattern = (
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-        )
+        uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         assert re.match(uuid_pattern, result["id"], re.IGNORECASE) is not None
 
     def test_grant_returns_correct_recipient_id(self, repo, recipient, share):
@@ -277,9 +275,7 @@ class TestExists:
 class TestCheckAccess:
     """验证 RecipientShareRepository.check_access() 方法。"""
 
-    def test_check_access_after_grant_returns_true(
-        self, repo, granted, recipient, share
-    ):
+    def test_check_access_after_grant_returns_true(self, repo, granted, recipient, share):
         """验证授权后 check_access() 返回 True。"""
         assert repo.check_access(recipient["recipient_id"], share["share_id"]) is True
 
@@ -296,9 +292,7 @@ class TestListByRecipient:
         results = repo.list_by_recipient(recipient["recipient_id"])
         assert isinstance(results, list)
 
-    def test_list_by_recipient_contains_granted_record(
-        self, repo, granted, recipient, share
-    ):
+    def test_list_by_recipient_contains_granted_record(self, repo, granted, recipient, share):
         """验证返回列表包含已授权的记录。"""
         results = repo.list_by_recipient(recipient["recipient_id"])
         assert len(results) == 1
@@ -323,9 +317,7 @@ class TestListByRecipient:
         results = repo.list_by_recipient(recipient["recipient_id"])
         assert results == []
 
-    def test_list_by_recipient_multiple_grants(
-        self, repo, recipient, share, share_repo
-    ):
+    def test_list_by_recipient_multiple_grants(self, repo, recipient, share, share_repo):
         """验证多个授权记录全部返回。"""
         share2 = share_repo.create_share("test_share_2")
         repo.grant(recipient["recipient_id"], share["share_id"])

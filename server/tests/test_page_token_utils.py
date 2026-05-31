@@ -106,9 +106,7 @@ class TestDecodeTamperedPayload:
         outer = json.loads(raw_bytes)
         tampered_inner = '{"offset":999}'
         outer["payload"] = tampered_inner
-        tampered_token = base64.urlsafe_b64encode(
-            json.dumps(outer).encode("utf-8")
-        ).decode("ascii")
+        tampered_token = base64.urlsafe_b64encode(json.dumps(outer).encode("utf-8")).decode("ascii")
 
         assert decode_page_token(tampered_token) is None
 
@@ -119,9 +117,7 @@ class TestDecodeTamperedPayload:
         raw_bytes = base64.urlsafe_b64decode(original_token)
         outer = json.loads(raw_bytes)
         outer["sig"] = "0" * 64
-        tampered_token = base64.urlsafe_b64encode(
-            json.dumps(outer).encode("utf-8")
-        ).decode("ascii")
+        tampered_token = base64.urlsafe_b64encode(json.dumps(outer).encode("utf-8")).decode("ascii")
 
         assert decode_page_token(tampered_token) is None
 
@@ -396,7 +392,5 @@ def _build_tampered_token(inner_payload: dict) -> str:
         payload.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-    token_structure = json.dumps(
-        {"payload": payload, "sig": sig}, separators=(",", ":")
-    )
+    token_structure = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
     return base64.urlsafe_b64encode(token_structure.encode("utf-8")).decode("ascii")

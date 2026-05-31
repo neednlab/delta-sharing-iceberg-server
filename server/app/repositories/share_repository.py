@@ -72,9 +72,7 @@ class ShareRepository:
         return row.share_id if row else None
 
     @staticmethod
-    def _get_schema_id(
-        conn: Connection, share_id: str, schema_name: str
-    ) -> Optional[str]:
+    def _get_schema_id(conn: Connection, share_id: str, schema_name: str) -> Optional[str]:
         """根据 share_id 和 schema_name 查找 schema_id（不区分大小写）。
 
         Args:
@@ -134,9 +132,7 @@ class ShareRepository:
             标准化的 Schema 字典。
         """
         result_share_name = (
-            row.share_name
-            if hasattr(row, "share_name") and row.share_name
-            else share_name
+            row.share_name if hasattr(row, "share_name") and row.share_name else share_name
         )
         return {
             "schema_id": row.schema_id,
@@ -278,9 +274,7 @@ class ShareRepository:
         """
         sh = self._sh
         with self._db.get_engine().connect() as conn:
-            result = conn.execute(
-                sh.select().where(sh.c.share_name == share_name.lower())
-            )
+            result = conn.execute(sh.select().where(sh.c.share_name == share_name.lower()))
             row = result.fetchone()
             if not row:
                 return None
@@ -333,9 +327,7 @@ class ShareRepository:
 
             try:
                 conn.execute(
-                    sh.update()
-                    .values(**update_values)
-                    .where(sh.c.share_name == share_name.lower())
+                    sh.update().values(**update_values).where(sh.c.share_name == share_name.lower())
                 )
             except IntegrityError as e:
                 raise DeltaSharingError(
@@ -859,9 +851,7 @@ class ShareRepository:
 
             try:
                 conn.execute(
-                    st.update()
-                    .values(**update_values)
-                    .where(st.c.table_id == table_row.table_id)
+                    st.update().values(**update_values).where(st.c.table_id == table_row.table_id)
                 )
             except IntegrityError as e:
                 raise DeltaSharingError(
@@ -881,9 +871,7 @@ class ShareRepository:
         return self.get_table(share_name, schema_name, table_name)
 
     @staticmethod
-    def _find_table_row(
-        conn: Connection, share_id: str, table_name: str, schema_name: str
-    ):
+    def _find_table_row(conn: Connection, share_id: str, table_name: str, schema_name: str):
         """查找 shared_tables 记录（支持 schema_name 过滤）。
 
         Args:
@@ -994,9 +982,7 @@ class ShareRepository:
                 return None
             return self._row_to_table_dict(row)
 
-    def delete_table(
-        self, share_name: str, schema_name: str = "", table_name: str = ""
-    ) -> bool:
+    def delete_table(self, share_name: str, schema_name: str = "", table_name: str = "") -> bool:
         """删除 Table 实体。
 
         Args:
@@ -1089,9 +1075,7 @@ class ShareRepository:
             ).label("schema_name")
 
             j_table1 = st.join(sh, st.c.share_id == sh.c.share_id)
-            j_table2 = j_table1.join(
-                ss, st.c.linked_schema_id == ss.c.schema_id, isouter=True
-            )
+            j_table2 = j_table1.join(ss, st.c.linked_schema_id == ss.c.schema_id, isouter=True)
 
             result_tables = conn.execute(
                 st.select()
@@ -1231,9 +1215,7 @@ class ShareRepository:
             output = {}
             for row in result.fetchall():
                 auxiliary_locations = (
-                    json.loads(row.auxiliary_locations)
-                    if row.auxiliary_locations
-                    else None
+                    json.loads(row.auxiliary_locations) if row.auxiliary_locations else None
                 )
                 output[row.table_name.lower()] = {
                     "table_id": row.table_id,
@@ -1305,9 +1287,7 @@ class ShareRepository:
                 if not s_name or not t_name:
                     continue
                 auxiliary_locations = (
-                    json.loads(row.auxiliary_locations)
-                    if row.auxiliary_locations
-                    else None
+                    json.loads(row.auxiliary_locations) if row.auxiliary_locations else None
                 )
                 if s_name not in output:
                     output[s_name] = {}
@@ -1456,9 +1436,7 @@ class ShareRepository:
                 )
 
             try:
-                result = conn.execute(
-                    st.delete().where(st.c.linked_schema_id == schema_id)
-                )
+                result = conn.execute(st.delete().where(st.c.linked_schema_id == schema_id))
             except IntegrityError as e:
                 raise DeltaSharingError(
                     ErrorCode.INTERNAL_ERROR,
@@ -1532,9 +1510,7 @@ class ShareRepository:
 
             if stale_ids:
                 try:
-                    delete_result = conn.execute(
-                        st.delete().where(st.c.table_id.in_(stale_ids))
-                    )
+                    delete_result = conn.execute(st.delete().where(st.c.table_id.in_(stale_ids)))
                 except IntegrityError as e:
                     raise DeltaSharingError(
                         ErrorCode.INTERNAL_ERROR,

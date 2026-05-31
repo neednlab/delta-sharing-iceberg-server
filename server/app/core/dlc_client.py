@@ -113,9 +113,7 @@ class DLCClientWrapper:
         try:
             response = client.DescribeTable(request)
             response_str = (
-                response.to_json_string()
-                if hasattr(response, "to_json_string")
-                else str(response)
+                response.to_json_string() if hasattr(response, "to_json_string") else str(response)
             )
             return {
                 "raw_response": response_str,
@@ -155,9 +153,7 @@ class DLCClientWrapper:
         try:
             response = client.DescribeTables(request)
             response_str = (
-                response.to_json_string()
-                if hasattr(response, "to_json_string")
-                else str(response)
+                response.to_json_string() if hasattr(response, "to_json_string") else str(response)
             )
             parsed = json.loads(response_str) if response_str else {}
 

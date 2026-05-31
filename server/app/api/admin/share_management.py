@@ -101,9 +101,7 @@ async def create_share(create_request: CreateShareRequest, request: Request = No
         logger.exception(f"Unexpected error creating share '{create_request.name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_CREATE_SHARE",
             request=request,
             category="admin",
@@ -138,9 +136,7 @@ async def list_shares(request: Request = None):
         logger.exception("Unexpected error listing shares")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_LIST_SHARES",
             request=request,
             category="admin",
@@ -185,9 +181,7 @@ async def get_share(
         logger.exception(f"Unexpected error getting share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_GET_SHARE",
             request=request,
             category="admin",
@@ -233,9 +227,7 @@ async def delete_share(
         logger.exception(f"Unexpected error deleting share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_DELETE_SHARE",
             request=request,
             category="admin",
@@ -283,9 +275,7 @@ async def rename_share(
         logger.exception(f"Unexpected error renaming share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_RENAME_SHARE",
             request=request,
             category="admin",
@@ -347,9 +337,7 @@ async def add_share_object(
                 else add_request.table_name
             )
             effective_metastore_db = (
-                add_request.metastore_db
-                if add_request.metastore_db
-                else add_request.schema_name
+                add_request.metastore_db if add_request.metastore_db else add_request.schema_name
             )
             table = repo.create_table(
                 share_name=share_name,
@@ -364,9 +352,7 @@ async def add_share_object(
             return {"type": "table", "data": table}
         elif add_request.schema_name:
             metastore_db = (
-                add_request.metastore_db
-                if add_request.metastore_db
-                else add_request.schema_name
+                add_request.metastore_db if add_request.metastore_db else add_request.schema_name
             )
             schema = repo.create_schema(
                 share_name=share_name,
@@ -408,9 +394,7 @@ async def add_share_object(
 
                 table_list = dlc_response.get("table_list", [])
 
-                dlc_table_names = [
-                    table_info.get("name", "") for table_info in table_list
-                ]
+                dlc_table_names = [table_info.get("name", "") for table_info in table_list]
 
                 if table_list:
                     tables_to_create = []
@@ -461,9 +445,7 @@ async def add_share_object(
         logger.exception(f"Unexpected error adding object to share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_ADD_SHARE_OBJECT",
             request=request,
             category="admin",
@@ -512,9 +494,7 @@ async def list_share_objects(
         logger.exception(f"Unexpected error listing objects for share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_LIST_SHARE_OBJECTS",
             request=request,
             category="admin",
@@ -560,14 +540,10 @@ async def list_direct_bound_tables(
             share=share_name,
         )
     except Exception:
-        logger.exception(
-            f"Unexpected error listing direct bound tables for share '{share_name}'"
-        )
+        logger.exception(f"Unexpected error listing direct bound tables for share '{share_name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_LIST_DIRECT_BOUND_TABLES",
             request=request,
             category="admin",
@@ -621,9 +597,7 @@ async def update_share_object(
                 )
             return schema
         elif object_type.lower() == "table":
-            if update_request.location and not update_request.location.startswith(
-                "cosn:"
-            ):
+            if update_request.location and not update_request.location.startswith("cosn:"):
                 raise DeltaSharingError(
                     ErrorCode.INVALID_REQUEST,
                     'Location must start with "cosn:" (e.g., cosn://bucket-name/path/to/table)',
@@ -666,9 +640,7 @@ async def update_share_object(
         )
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_UPDATE_SHARE_OBJECT",
             request=request,
             category="admin",
@@ -746,9 +718,7 @@ async def delete_share_object(
         )
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_DELETE_SHARE_OBJECT",
             request=request,
             category="admin",

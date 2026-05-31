@@ -368,9 +368,7 @@ class TestIcebergSchemaConverter:
                 NestedField(2, "zip", StringType(), required=False),
             )
         )
-        result = IcebergSchemaConverter.convert_struct(
-            struct_type, "address", is_nullable=True
-        )
+        result = IcebergSchemaConverter.convert_struct(struct_type, "address", is_nullable=True)
 
         assert result["name"] == "address"
         assert result["nullable"] is True
@@ -398,12 +396,8 @@ class TestIcebergSchemaConverter:
         from pyiceberg.types import ListType, IntegerType
         from app.services.iceberg_service import IcebergSchemaConverter
 
-        list_type = ListType(
-            element_id=1, element_type=IntegerType(), element_required=True
-        )
-        result = IcebergSchemaConverter.convert_list(
-            list_type, "tags", is_nullable=True
-        )
+        list_type = ListType(element_id=1, element_type=IntegerType(), element_required=True)
+        result = IcebergSchemaConverter.convert_list(list_type, "tags", is_nullable=True)
 
         assert result["name"] == "tags"
         assert result["nullable"] is True
@@ -432,18 +426,12 @@ class TestIcebergSchemaConverter:
                 NestedField(2, "value", IntegerType(), required=False),
             )
         )
-        list_type = ListType(
-            element_id=1, element_type=struct_type, element_required=True
-        )
-        result = IcebergSchemaConverter.convert_list(
-            list_type, "items", is_nullable=True
-        )
+        list_type = ListType(element_id=1, element_type=struct_type, element_required=True)
+        result = IcebergSchemaConverter.convert_list(list_type, "items", is_nullable=True)
 
         inner_type = result["type"]
         assert inner_type["type"] == "array"
-        assert isinstance(inner_type["elementType"], dict), (
-            "elementType 对复杂类型应为嵌套对象"
-        )
+        assert isinstance(inner_type["elementType"], dict), "elementType 对复杂类型应为嵌套对象"
         assert inner_type["elementType"]["type"] == "struct"
         assert len(inner_type["elementType"]["fields"]) == 2
         assert inner_type["elementType"]["fields"][0]["name"] == "name"
@@ -463,9 +451,7 @@ class TestIcebergSchemaConverter:
             value_type=IntegerType(),
             value_required=False,
         )
-        result = IcebergSchemaConverter.convert_map(
-            map_type, "scores", is_nullable=True
-        )
+        result = IcebergSchemaConverter.convert_map(map_type, "scores", is_nullable=True)
 
         assert result["name"] == "scores"
         assert isinstance(result["type"], dict), "map 字段的 type 应为嵌套对象"
@@ -483,9 +469,7 @@ class TestIcebergSchemaConverter:
         from pyiceberg.types import MapType, StringType, ListType, IntegerType
         from app.services.iceberg_service import IcebergSchemaConverter
 
-        list_type = ListType(
-            element_id=1, element_type=IntegerType(), element_required=True
-        )
+        list_type = ListType(element_id=1, element_type=IntegerType(), element_required=True)
         map_type = MapType(
             key_id=1,
             key_type=StringType(),
@@ -493,16 +477,12 @@ class TestIcebergSchemaConverter:
             value_type=list_type,
             value_required=False,
         )
-        result = IcebergSchemaConverter.convert_map(
-            map_type, "items_map", is_nullable=True
-        )
+        result = IcebergSchemaConverter.convert_map(map_type, "items_map", is_nullable=True)
 
         inner_type = result["type"]
         assert inner_type["type"] == "map"
         assert inner_type["keyType"] == "string", "基本类型 key 应为类型名字符串"
-        assert isinstance(inner_type["valueType"], dict), (
-            "复杂类型 value 应为嵌套 type 对象"
-        )
+        assert isinstance(inner_type["valueType"], dict), "复杂类型 value 应为嵌套 type 对象"
         assert inner_type["valueType"]["type"] == "array"
         assert inner_type["valueType"]["elementType"] == "integer"
 
@@ -523,12 +503,8 @@ class TestIcebergSchemaConverter:
                 NestedField(2, "value", IntegerType(), required=False),
             )
         )
-        list_type = ListType(
-            element_id=1, element_type=struct_type, element_required=True
-        )
-        result = IcebergSchemaConverter.convert_list(
-            list_type, "items", is_nullable=True
-        )
+        list_type = ListType(element_id=1, element_type=struct_type, element_required=True)
+        result = IcebergSchemaConverter.convert_list(list_type, "items", is_nullable=True)
 
         inner_type = result["type"]
         assert inner_type["type"] == "array"
@@ -589,9 +565,7 @@ class TestIcebergSchemaConverter:
                 NestedField(
                     8,
                     "tags",
-                    ListType(
-                        element_id=8, element_type=StringType(), element_required=True
-                    ),
+                    ListType(element_id=8, element_type=StringType(), element_required=True),
                     required=False,
                 ),
                 NestedField(
@@ -808,21 +782,11 @@ class TestIcebergSchemaConverter:
             IcebergSchemaConverter,
         )
 
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type_any("int"), IntegerType
-        )
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type_any("string"), StringType
-        )
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type_any("long"), LongType
-        )
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type_any("short"), _ShortType
-        )
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type_any("byte"), _ByteType
-        )
+        assert isinstance(IcebergSchemaConverter._parse_field_type_any("int"), IntegerType)
+        assert isinstance(IcebergSchemaConverter._parse_field_type_any("string"), StringType)
+        assert isinstance(IcebergSchemaConverter._parse_field_type_any("long"), LongType)
+        assert isinstance(IcebergSchemaConverter._parse_field_type_any("short"), _ShortType)
+        assert isinstance(IcebergSchemaConverter._parse_field_type_any("byte"), _ByteType)
 
     def test_parse_field_type_any_decimal_dict_format(self):
         """验证 _parse_field_type_any 正确解析 Iceberg 元数据 JSON 中的 decimal dict 格式。
@@ -900,9 +864,7 @@ class TestIcebergSchemaConverter:
         # 带空格格式（COS Iceberg 元数据实际存储格式）
         result = IcebergSchemaConverter._parse_field_type_any("decimal(38, 0)")
         assert isinstance(result, DecimalType)
-        assert result.precision == 38, (
-            f"带空格: 期望 precision=38, 实际={result.precision}"
-        )
+        assert result.precision == 38, f"带空格: 期望 precision=38, 实际={result.precision}"
         assert result.scale == 0, f"带空格: 期望 scale=0, 实际={result.scale}"
 
         result = IcebergSchemaConverter._parse_field_type_any("decimal(38, 2)")
@@ -927,13 +889,9 @@ class TestIcebergSchemaConverter:
         from app.services.iceberg_service import IcebergSchemaConverter
 
         assert isinstance(IcebergSchemaConverter._parse_field_type(" int"), IntegerType)
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type("string "), StringType
-        )
+        assert isinstance(IcebergSchemaConverter._parse_field_type("string "), StringType)
         assert isinstance(IcebergSchemaConverter._parse_field_type(" long "), LongType)
-        assert isinstance(
-            IcebergSchemaConverter._parse_field_type("\tfloat "), FloatType
-        )
+        assert isinstance(IcebergSchemaConverter._parse_field_type("\tfloat "), FloatType)
 
         # decimal 也兼容首尾空格
         result = IcebergSchemaConverter._parse_field_type(" decimal(38, 0) ")
@@ -1046,16 +1004,12 @@ class TestIcebergSchemaConverter:
                 NestedField(
                     2,
                     "b",
-                    StructType(
-                        fields=(NestedField(3, "d", IntegerType(), required=True),)
-                    ),
+                    StructType(fields=(NestedField(3, "d", IntegerType(), required=True),)),
                     required=False,
                 ),
             )
         )
-        schema_obj = IcebergSchema(
-            schema_id=0, type="struct", fields=struct_type.fields
-        )
+        schema_obj = IcebergSchema(schema_id=0, type="struct", fields=struct_type.fields)
         json_str = IcebergSchemaConverter.convert_schema(schema_obj)
         schema = json.loads(json_str)
 
@@ -1291,9 +1245,7 @@ class TestPoolConfig:
         pc = PoolConfig()
         pc.pool_type = "null_pool"
         kwargs = db._build_engine_kwargs(is_sqlite=False, pool_config=pc)
-        assert kwargs["poolclass"].__name__ == "QueuePool", (
-            "PostgreSQL 应始终使用 QueuePool"
-        )
+        assert kwargs["poolclass"].__name__ == "QueuePool", "PostgreSQL 应始终使用 QueuePool"
 
 
 class TestPageTokenSecretValidation:

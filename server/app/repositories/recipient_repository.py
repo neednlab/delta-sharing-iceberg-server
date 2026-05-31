@@ -64,9 +64,7 @@ class RecipientRepository:
         """
         r = recipients
         result = conn.execute(
-            r.select()
-            .with_only_columns(r.c.recipient_id)
-            .where(r.c.recipient_name == name)
+            r.select().with_only_columns(r.c.recipient_id).where(r.c.recipient_name == name)
         )
         row = result.fetchone()
         return row.recipient_id if row else None
@@ -303,9 +301,7 @@ class RecipientRepository:
             if is_active is not None:
                 update_values["is_active"] = 1 if is_active else 0
 
-            conn.execute(
-                r.update().values(**update_values).where(r.c.recipient_name == name)
-            )
+            conn.execute(r.update().values(**update_values).where(r.c.recipient_name == name))
 
         final_name = new_name if new_name else name
         return self.find_by_name(final_name)
@@ -335,11 +331,7 @@ class RecipientRepository:
                 return False
 
             # 使用子查询获取 recipient_id，确保级联删除一致性
-            rid_subq = (
-                select(r.c.recipient_id)
-                .where(r.c.recipient_name == name)
-                .scalar_subquery()
-            )
+            rid_subq = select(r.c.recipient_id).where(r.c.recipient_name == name).scalar_subquery()
 
             conn.execute(bt.delete().where(bt.c.recipient_id == rid_subq))
             conn.execute(rs.delete().where(rs.c.recipient_id == rid_subq))

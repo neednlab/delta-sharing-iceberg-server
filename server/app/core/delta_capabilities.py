@@ -54,9 +54,7 @@ class DeltaSharingCapabilities:
             features_str = ",".join(sorted(self.reader_features))
             parts.append(f"readerFeatures={features_str}")
 
-        parts.append(
-            f"includeEndStreamAction={str(self.include_end_stream_action).lower()}"
-        )
+        parts.append(f"includeEndStreamAction={str(self.include_end_stream_action).lower()}")
 
         return ";".join(parts)
 
@@ -121,10 +119,7 @@ def parse_delta_sharing_capabilities(
         elif key == "includeendstreamaction":
             temp_include_end_stream_action = value.lower() == "true"
 
-    if (
-        temp_include_end_stream_action
-        and temp_response_format == ResponseFormat.PARQUET
-    ):
+    if temp_include_end_stream_action and temp_response_format == ResponseFormat.PARQUET:
         capabilities.include_end_stream_action = False
         capabilities.response_format = ResponseFormat.PARQUET
     else:

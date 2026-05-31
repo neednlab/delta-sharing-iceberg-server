@@ -42,6 +42,7 @@ from app.core.audit import request_id_ctx, get_audit_logger
 from app.core.cache import CacheMiddleware, _request_cache_managers
 from app.core.errors import DeltaSharingError, ErrorCode
 from app.core.logging_config import configure_logging
+from app.core.request_size_limit import RequestSizeLimitMiddleware
 
 from app.routes.shares import router as shares_router
 from app.routes.metadata import router as metadata_router
@@ -154,9 +155,7 @@ class AuditLoggingMiddleware:
                             if not error_message:
                                 error_message = err_data.get("message")
                     except Exception:
-                        logger.debug(
-                            "Failed to parse error response body for audit logging"
-                        )
+                        logger.debug("Failed to parse error response body for audit logging")
 
                 # 错误响应时提取请求头摘要，用于跨境连接问题排查
                 request_headers_summary = None
@@ -314,12 +313,18 @@ def create_data_plane_app() -> FastAPI:
     Returns:
         配置完成的 Data Plane FastAPI 应用实例。
     """
+    config = get_config()
+    data_plane_max_bytes = config.server.max_request_body_size_mb * 1024 * 1024
+
     app = FastAPI(
         title="Delta Sharing Server - Data Plane",
         description="A Delta Sharing protocol compatible server for Iceberg tables",
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    # 请求体大小限制（第一道防线，在 body 被读取前拦截超大请求）
+    app.add_middleware(RequestSizeLimitMiddleware, max_size_bytes=data_plane_max_bytes)
 
     # CORS 允许所有来源（数据面需要从任意客户端接收请求）
     app.add_middleware(
@@ -361,11 +366,17 @@ def create_admin_app() -> FastAPI:
     Returns:
         配置完成的 Admin API FastAPI 应用实例。
     """
+    config = get_config()
+    admin_max_bytes = config.server.admin_max_request_body_size_mb * 1024 * 1024
+
     app = FastAPI(
         title="Delta Sharing Server - Admin API",
         description="Admin API for managing shares, recipients, and tokens",
         version="0.1.0",
     )
+
+    # 请求体大小限制（第一道防线，在 body 被读取前拦截超大请求）
+    app.add_middleware(RequestSizeLimitMiddleware, max_size_bytes=admin_max_bytes)
 
     # CORS 仅允许 localhost 来源（Admin API 仅限本地管理端访问）
     app.add_middleware(

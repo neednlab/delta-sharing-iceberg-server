@@ -206,7 +206,9 @@ class PredicateService:
         if hint_stripped.startswith("(") and hint_stripped.endswith(")"):
             hint_stripped = hint_stripped[1:-1]
 
-        cast_pattern = r"CAST\s*\(\s*partitionValues\.(\\w+)\s+AS\s+(\\w+)\s*\)\s*(=|!=|<>|>=|<=|>|<)\s*(.+)"
+        cast_pattern = (
+            r"CAST\s*\(\s*partitionValues\.(\\w+)\s+AS\s+(\\w+)\s*\)\s*(=|!=|<>|>=|<=|>|<)\s*(.+)"
+        )
         cast_match = re.match(cast_pattern, hint_stripped, re.IGNORECASE)
         if cast_match:
             col_name = cast_match.group(1)
@@ -239,7 +241,9 @@ class PredicateService:
 
             return {"column": col_name, "op": op, "literal": literal_val}
 
-        null_pattern = r"CAST\s*\(\s*partitionValues\.(\\w+)\s+AS\s+(\\w+)\s*\)\s+IS\s+(NOT\s+)?NULL"
+        null_pattern = (
+            r"CAST\s*\(\s*partitionValues\.(\\w+)\s+AS\s+(\\w+)\s*\)\s+IS\s+(NOT\s+)?NULL"
+        )
         null_match = re.match(null_pattern, hint_stripped, re.IGNORECASE)
         if null_match:
             col_name = null_match.group(1)
@@ -310,15 +314,9 @@ class PredicateService:
             return True
 
         if op == "isNull":
-            return (
-                col_name not in partition_values
-                or partition_values.get(col_name) is None
-            )
+            return col_name not in partition_values or partition_values.get(col_name) is None
         elif op == "isNotNull":
-            return (
-                col_name in partition_values
-                and partition_values.get(col_name) is not None
-            )
+            return col_name in partition_values and partition_values.get(col_name) is not None
 
         literal = predicate.get("literal")
         if literal is None:
@@ -425,9 +423,7 @@ class PredicateService:
                 for pred in preds:
                     pred_copy = dict(pred)
                     pred_copy["column"] = col
-                    if not self._evaluate_partition_predicate(
-                        partition_values, pred_copy
-                    ):
+                    if not self._evaluate_partition_predicate(partition_values, pred_copy):
                         matches = False
                         break
                 if not matches:
@@ -515,9 +511,7 @@ class PredicateService:
                     if isinstance(pred, dict) and "raw_expression" in pred:
                         continue
                     # 跳过目标列为已处理分区列的谓词
-                    target_cols = self._get_predicate_target_columns(
-                        pred, partition_columns
-                    )
+                    target_cols = self._get_predicate_target_columns(pred, partition_columns)
                     if any(col in handled_partition_cols for col in target_cols):
                         continue
                     if not self.matches_predicate_hint(f, pred):
@@ -642,9 +636,7 @@ class PredicateService:
 
         return stats if isinstance(stats, dict) else {}
 
-    def matches_predicate_hint(
-        self, file_info: Dict[str, Any], predicate: Dict[str, Any]
-    ) -> bool:
+    def matches_predicate_hint(self, file_info: Dict[str, Any], predicate: Dict[str, Any]) -> bool:
         """判断文件是否匹配谓词条件。
 
         优先使用 partition_values 进行分区裁剪，其次使用文件统计信息
@@ -669,9 +661,7 @@ class PredicateService:
                     predicate["raw_expression"], list(partition_values.keys())
                 )
                 if spark_pred:
-                    return self._evaluate_partition_predicate(
-                        partition_values, spark_pred
-                    )
+                    return self._evaluate_partition_predicate(partition_values, spark_pred)
             return True
 
         column = predicate.get("column")

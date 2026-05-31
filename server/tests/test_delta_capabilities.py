@@ -152,9 +152,7 @@ class TestDeltaMetadata:
         result = meta.to_delta_dict()
         assert result["metaData"]["deltaMetadata"]["id"] == "test-id"
         assert result["metaData"]["deltaMetadata"]["format"] == {"provider": "parquet"}
-        assert (
-            result["metaData"]["deltaMetadata"]["schemaString"] == '{"type":"struct"}'
-        )
+        assert result["metaData"]["deltaMetadata"]["schemaString"] == '{"type":"struct"}'
 
     def test_to_delta_dict_partition_columns(self):
         meta = DeltaMetadata(
