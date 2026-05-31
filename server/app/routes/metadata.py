@@ -173,7 +173,9 @@ async def get_table_metadata(
             share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
         )
 
-        metadata = iceberg_service.get_table_metadata(share, schema, table)
+        metadata = iceberg_service.get_table_metadata(
+            share, schema, table, table_config=table_config, snapshot=snapshot
+        )
 
         if metadata is None:
             raise_audited_error(

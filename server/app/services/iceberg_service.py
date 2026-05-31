@@ -755,6 +755,7 @@ class IcebergService:
         schema_name: str,
         table_name: str,
         table_config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """获取表的当前快照。
 
@@ -763,6 +764,7 @@ class IcebergService:
             schema_name: Schema 名称。
             table_name: 表名称。
             table_config: 预加载的表配置字典，若为 None 则内部加载。
+            metadata: 预加载的 Iceberg 元数据字典，若为 None 则内部加载。
 
         Returns:
             快照信息字典，如果未找到则返回 None。
@@ -772,9 +774,10 @@ class IcebergService:
         if not table_config:
             return None
 
-        metadata = self._load_metadata_from_cos(
-            table_config["location"], share_name, schema_name, table_name
-        )
+        if metadata is None:
+            metadata = self._load_metadata_from_cos(
+                table_config["location"], share_name, schema_name, table_name
+            )
 
         current_snapshot_id = metadata.get("current-snapshot-id")
         snapshots = metadata.get("snapshots", [])
@@ -794,7 +797,12 @@ class IcebergService:
         return None
 
     def get_schema_string(
-        self, share_name: str, schema_name: str, table_name: str
+        self,
+        share_name: str,
+        schema_name: str,
+        table_name: str,
+        table_config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[str]:
         """获取表的 schema 字符串。
 
@@ -802,17 +810,21 @@ class IcebergService:
             share_name: Share 名称。
             schema_name: Schema 名称。
             table_name: 表名称。
+            table_config: 预加载的表配置字典，若为 None 则内部加载。
+            metadata: 预加载的 Iceberg 元数据字典，若为 None 则内部加载。
 
         Returns:
             JSON 格式的 schema 字符串，如果获取失败则返回 None。
         """
-        table_config = self._get_table_config(share_name, schema_name, table_name)
+        if table_config is None:
+            table_config = self._get_table_config(share_name, schema_name, table_name)
         if not table_config:
             return None
 
-        metadata = self._load_metadata_from_cos(
-            table_config["location"], share_name, schema_name, table_name
-        )
+        if metadata is None:
+            metadata = self._load_metadata_from_cos(
+                table_config["location"], share_name, schema_name, table_name
+            )
 
         schemas = metadata.get("schemas", [])
         current_schema_id = metadata.get("current-schema-id")
@@ -860,6 +872,7 @@ class IcebergService:
         schema_name: str,
         table_name: str,
         table_config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """获取表的分区列。
 
@@ -868,6 +881,7 @@ class IcebergService:
             schema_name: Schema 名称。
             table_name: 表名称。
             table_config: 预加载的表配置字典，若为 None 则内部加载。
+            metadata: 预加载的 Iceberg 元数据字典，若为 None 则内部加载。
 
         Returns:
             分区列名称列表。
@@ -877,9 +891,10 @@ class IcebergService:
         if not table_config:
             return []
 
-        metadata = self._load_metadata_from_cos(
-            table_config["location"], share_name, schema_name, table_name
-        )
+        if metadata is None:
+            metadata = self._load_metadata_from_cos(
+                table_config["location"], share_name, schema_name, table_name
+            )
 
         partition_specs = metadata.get("partition-specs", [])
         default_spec_id = metadata.get("default-spec-id")
@@ -935,6 +950,7 @@ class IcebergService:
         table_name: str,
         table_config: Optional[Dict[str, Any]] = None,
         preloaded_data_files: Optional[List[Dict[str, Any]]] = None,
+        snapshot: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """获取表的完整元数据。
 
@@ -947,6 +963,8 @@ class IcebergService:
                 get_data_files() 获取了数据文件列表时，可通过此参数传入，
                 避免方法内部重复调用 get_data_files() 导致的额外 manifest 扫描。
                 若为 None，方法内部将自行调用 get_data_files() 获取。
+            snapshot: 预加载的快照信息字典，若为 None 则内部通过
+                get_current_snapshot() 获取。
 
         Returns:
             包含表元数据的字典，包含 id、format、schema_string、partition_columns、
@@ -957,20 +975,27 @@ class IcebergService:
         if not table_config:
             return None
 
-        snapshot = self.get_current_snapshot(
-            share_name, schema_name, table_name, table_config=table_config
+        metadata = self._load_metadata_from_cos(
+            table_config["location"], share_name, schema_name, table_name
         )
+
+        if snapshot is None:
+            snapshot = self.get_current_snapshot(
+                share_name, schema_name, table_name, table_config=table_config, metadata=metadata
+            )
         if not snapshot:
             return None
 
         snapshot_id = snapshot.get("snapshot-id")
 
-        schema_string = self.get_schema_string(share_name, schema_name, table_name)
+        schema_string = self.get_schema_string(
+            share_name, schema_name, table_name, table_config=table_config, metadata=metadata
+        )
         if not schema_string:
             return None
 
         partition_columns = self.get_partition_columns(
-            share_name, schema_name, table_name, table_config=table_config
+            share_name, schema_name, table_name, table_config=table_config, metadata=metadata
         )
 
         table_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}"))
@@ -979,22 +1004,18 @@ class IcebergService:
             data_files = preloaded_data_files
         else:
             data_files, _ = self.get_data_files(
-                share_name, schema_name, table_name, snapshot_id, table_config=table_config
+                share_name,
+                schema_name,
+                table_name,
+                snapshot_id,
+                table_config=table_config,
+                metadata=metadata,
             )
 
         total_size = sum(f.get("file_size", 0) for f in data_files)
         num_files = len(data_files)
 
-        # 优先从请求级缓存获取 metadata（前面的子调用已缓存）
-        # 缓存命中则无需额外 COS 请求；未命中时降级调用 _load_metadata_from_cos
-        cached_metadata = self._get_cached_metadata(share_name, schema_name, table_name)
-        if cached_metadata is not None:
-            configuration = cached_metadata.get("properties", {})
-        else:
-            metadata = self._load_metadata_from_cos(
-                table_config["location"], share_name, schema_name, table_name
-            )
-            configuration = metadata.get("properties", {})
+        configuration = metadata.get("properties", {})
 
         return {
             "id": table_id,
@@ -1263,6 +1284,7 @@ class IcebergService:
         table_name: str,
         snapshot_id: int,
         table_config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Tuple[List[Dict[str, Any]], bool]:
         """获取指定快照的数据文件列表，同时检测是否存在删除文件。
 
@@ -1275,6 +1297,7 @@ class IcebergService:
             table_name: 表名称。
             snapshot_id: 快照 ID。
             table_config: 预加载的表配置字典，若为 None 则内部加载。
+            metadata: 预加载的 Iceberg 元数据字典，若为 None 则内部加载。
 
         Returns:
             (data_files, has_delete_files) 元组：
@@ -1287,9 +1310,10 @@ class IcebergService:
         if not table_config:
             return [], False
 
-        metadata = self._load_metadata_from_cos(
-            table_config["location"], share_name, schema_name, table_name
-        )
+        if metadata is None:
+            metadata = self._load_metadata_from_cos(
+                table_config["location"], share_name, schema_name, table_name
+            )
 
         # 构建字段 ID 到名称和类型的映射，用于解码文件统计信息
         field_id_mapping = self._get_field_id_mapping(metadata)
