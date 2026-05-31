@@ -18,6 +18,7 @@ Repository 职责:
 import uuid
 from typing import Dict, List, Optional, Any
 
+from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.core.database import get_database, recipient_shares, shares
@@ -174,6 +175,56 @@ class RecipientShareRepository:
                 )
             )
             return result.fetchone() is not None
+
+    # ------------------------------------------------------------------
+    # 公共方法：合并查询（share 存在性 + 授权验证）
+    # ------------------------------------------------------------------
+
+    def check_access_with_share_validation(
+        self, share_name: str, recipient_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """使用 outerjoin 合并 share 存在性验证和授权检查为单次 SQL 查询。
+
+        使用 SQLAlchemy Core outerjoin 将 shares 表和 recipient_shares 表
+        合并为单次查询，同时返回 share_id 和授权状态。
+        替代原先 share_exists() + check_share_access() 两次独立查询。
+
+        Args:
+            share_name: Share 名称。
+            recipient_id: Recipient UUID。
+
+        Returns:
+            如果 share 存在，返回 {"share_id": "<uuid>", "authorized": True/False}。
+            如果 share 不存在，返回 None。
+        """
+        rs = self._rs
+        sh = self._sh
+
+        j = sh.outerjoin(
+            rs,
+            and_(
+                sh.c.share_id == rs.c.share_id,
+                rs.c.recipient_id == recipient_id,
+            ),
+        )
+
+        with self._db.get_engine().connect() as conn:
+            result = conn.execute(
+                sh.select()
+                .with_only_columns(
+                    sh.c.share_id,
+                    rs.c.id.label("auth_id"),
+                )
+                .select_from(j)
+                .where(sh.c.share_name == share_name.lower())
+            )
+            row = result.fetchone()
+            if row is None:
+                return None
+            return {
+                "share_id": row.share_id,
+                "authorized": row.auth_id is not None,
+            }
 
     # ------------------------------------------------------------------
     # 公共方法：授权列表查询

@@ -55,10 +55,13 @@ class TestSchemaEndpoint:
         assert data["errorCode"] == "SHARE_NOT_FOUND"
 
     @patch("app.routes.shares.share_service")
-    @patch("app.routes.shares.authorization_service")
+    @patch("app.routes.shares.auth_repo")
     def test_list_schemas_success(self, mock_auth, mock_service, client_dp):
         mock_service.share_exists.return_value = True
-        mock_auth.check_share_access.return_value = True
+        mock_auth.check_access_with_share_validation.return_value = {
+            "share_id": "fake-id",
+            "authorized": True,
+        }
         mock_service.list_schemas.return_value = {
             "items": [{"name": "schema1", "share": "share1"}],
             "next_page_token": None,
@@ -81,10 +84,13 @@ class TestTableEndpoint:
         assert response.status_code == 404
 
     @patch("app.routes.shares.share_service")
-    @patch("app.routes.shares.authorization_service")
+    @patch("app.routes.shares.auth_repo")
     def test_list_tables_schema_not_found(self, mock_auth, mock_service, client_dp):
         mock_service.share_exists.return_value = True
-        mock_auth.check_share_access.return_value = True
+        mock_auth.check_access_with_share_validation.return_value = {
+            "share_id": "fake-id",
+            "authorized": True,
+        }
         mock_service.schema_exists.return_value = False
 
         response = client_dp.get("/delta-sharing/shares/share1/schemas/unknown/tables")

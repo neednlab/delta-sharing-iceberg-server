@@ -17,7 +17,7 @@ from fastapi import APIRouter, Path, Query, Request, Depends, HTTPException
 from app.core.errors import DeltaSharingError, ErrorCode
 from app.core.audit import get_audit_logger
 from app.services.share_service import ShareService
-from app.services.authorization_service import AuthorizationService
+from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.models.share import (
     ShareListResponse,
     ShareResponse,
@@ -34,7 +34,7 @@ from loguru import logger
 router = APIRouter(prefix="", tags=["shares"])
 
 share_service = ShareService()
-authorization_service = AuthorizationService()
+auth_repo = RecipientShareRepository()
 
 
 @router.get("/shares", response_model=ShareListResponse)
@@ -126,7 +126,8 @@ async def get_share(
     """
     audit_logger = get_audit_logger()
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -141,7 +142,7 @@ async def get_share(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -208,7 +209,8 @@ async def list_schemas(
     """
     audit_logger = get_audit_logger()
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -223,7 +225,7 @@ async def list_schemas(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -310,7 +312,8 @@ async def list_all_tables(
     """
     audit_logger = get_audit_logger()
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -325,7 +328,7 @@ async def list_all_tables(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -414,7 +417,8 @@ async def list_tables(
     """
     audit_logger = get_audit_logger()
 
-    if not share_service.share_exists(share):
+    access_result = auth_repo.check_access_with_share_validation(share, recipient_id)
+    if access_result is None:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
@@ -430,7 +434,7 @@ async def list_tables(
             recipient_id=recipient_id,
         )
 
-    if not authorization_service.check_share_access(recipient_id, share):
+    if not access_result["authorized"]:
         raise_audited_error(
             audit_logger,
             DeltaSharingError(
