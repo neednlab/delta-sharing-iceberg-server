@@ -29,6 +29,8 @@ class ServerConfig:
         admin_host: Admin API 服务器监听地址，默认为 "127.0.0.1"（仅本地访问）。
         admin_port: Admin API 服务器监听端口，默认为 8089。
         api_prefix: API 路径前缀，默认为 "/delta-sharing"。
+        max_request_body_size_mb: Data Plane 请求体大小上限（MB），默认为 1。
+        admin_max_request_body_size_mb: Admin API 请求体大小上限（MB），默认为 10。
     """
 
     host: str = "0.0.0.0"
@@ -36,6 +38,8 @@ class ServerConfig:
     admin_host: str = "127.0.0.1"
     admin_port: int = 8089
     api_prefix: str = "/delta-sharing"
+    max_request_body_size_mb: int = 1
+    admin_max_request_body_size_mb: int = 10
 
 
 class COSConfig:
@@ -449,9 +453,7 @@ def _build_table_config(data: dict) -> TableConfig:
     return tc
 
 
-def get_table_config(
-    share_name: str, schema_name: str, table_name: str
-) -> Optional[TableConfig]:
+def get_table_config(share_name: str, schema_name: str, table_name: str) -> Optional[TableConfig]:
     """获取指定表的配置信息。
 
     根据 Share、Schema 和表名查找对应的表配置。查找时不区分大小写。
@@ -690,9 +692,7 @@ def get_schema_tables(share_name: str, schema_name: str) -> Dict[str, TableConfi
     return _get_tables_from_config(share_name, schema_name)
 
 
-def _get_tables_from_database(
-    share_name: str, schema_name: str
-) -> Dict[str, TableConfig]:
+def _get_tables_from_database(share_name: str, schema_name: str) -> Dict[str, TableConfig]:
     """从数据库获取指定 Schema 下的所有表配置。
 
     Args:
@@ -713,9 +713,7 @@ def _get_tables_from_database(
     return result
 
 
-def _get_tables_from_config(
-    share_name: str, schema_name: str
-) -> Dict[str, TableConfig]:
+def _get_tables_from_config(share_name: str, schema_name: str) -> Dict[str, TableConfig]:
     """从配置文件获取指定 Schema 下的所有表配置。
 
     Args:
@@ -794,9 +792,7 @@ def _get_all_tables_from_database(share_name: str) -> Dict[str, Dict[str, TableC
     for schema_name_lower, tables_dict in all_tables_dict.items():
         result[schema_name_lower] = {}
         for table_name_lower, table_data in tables_dict.items():
-            result[schema_name_lower][table_name_lower] = _build_table_config(
-                table_data
-            )
+            result[schema_name_lower][table_name_lower] = _build_table_config(table_data)
     return result
 
 
@@ -979,8 +975,7 @@ def _validate_pool_config(config: Config) -> None:
     if pool.pool_type not in valid_pool_types:
         raise DeltaSharingError(
             ErrorCode.INVALID_PARAMETER_VALUE,
-            f"Invalid pool_type: '{pool.pool_type}'. "
-            f"Must be one of: {', '.join(valid_pool_types)}",
+            f"Invalid pool_type: '{pool.pool_type}'. Must be one of: {', '.join(valid_pool_types)}",
         )
     if not (1 <= pool.pool_size <= 100):
         raise DeltaSharingError(

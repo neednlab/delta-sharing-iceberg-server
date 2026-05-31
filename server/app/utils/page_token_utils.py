@@ -88,9 +88,7 @@ def encode_page_token(offset: int) -> str:
         hashlib.sha256,
     ).hexdigest()
 
-    token_structure = json.dumps(
-        {"payload": payload, "sig": sig}, separators=(",", ":")
-    )
+    token_structure = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
 
     return base64.urlsafe_b64encode(token_structure.encode("utf-8")).decode("ascii")
 
@@ -178,9 +176,7 @@ def decode_page_token(token: str) -> Optional[int]:
         return None
 
     if not isinstance(offset, int) or isinstance(offset, bool):
-        logger.warning(
-            f"Page token offset type error: expected int, got {type(offset).__name__}"
-        )
+        logger.warning(f"Page token offset type error: expected int, got {type(offset).__name__}")
         return None
 
     if offset < 0:

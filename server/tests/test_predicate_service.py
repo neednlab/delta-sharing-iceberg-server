@@ -297,12 +297,8 @@ class TestFilterFilesByPartitionPruning:
             {"path": "f1.parquet", "partition_values": {"month_id": "202604"}},
             {"path": "f2.parquet", "partition_values": {"month_id": "202605"}},
         ]
-        predicate_hints = [
-            {"raw_expression": "(CAST(partitionValues.month_id AS INT) = 202604)"}
-        ]
-        result = ps.filter_files_by_partition_pruning(
-            files, None, predicate_hints, ["month_id"]
-        )
+        predicate_hints = [{"raw_expression": "(CAST(partitionValues.month_id AS INT) = 202604)"}]
+        result = ps.filter_files_by_partition_pruning(files, None, predicate_hints, ["month_id"])
         assert len(result) == 2
 
 

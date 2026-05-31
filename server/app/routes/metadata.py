@@ -50,9 +50,7 @@ async def get_table_metadata(
     schema: str = Path(..., max_length=256, pattern=r"^[a-zA-Z0-9_\-\.]+$"),
     table: str = Path(..., max_length=256, pattern=r"^[a-zA-Z0-9_\-\.]+$"),
     request: Request = None,
-    delta_sharing_capabilities: Optional[str] = Header(
-        None, alias="delta-sharing-capabilities"
-    ),
+    delta_sharing_capabilities: Optional[str] = Header(None, alias="delta-sharing-capabilities"),
     recipient_id: str = Depends(get_current_recipient),
 ):
     """获取指定表的元数据。

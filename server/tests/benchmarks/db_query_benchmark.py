@@ -45,9 +45,7 @@ class SqlCounter:
         self._depth = 0
         self._attached = False
 
-    def _on_before_cursor_execute(
-        self, conn, cursor, statement, parameters, context, executemany
-    ):
+    def _on_before_cursor_execute(self, conn, cursor, statement, parameters, context, executemany):
         """SQLAlchemy before_cursor_execute 事件回调。"""
         self.count += 1
         self.statements.append(str(statement).strip())
@@ -171,9 +169,7 @@ def run_benchmark(mode: str) -> Dict:
     # ------------------------------------------------------------------
     if test_share and hasattr(auth_repo, "check_access_with_share_validation"):
         counter.attach()
-        result = auth_repo.check_access_with_share_validation(
-            test_share, test_recipient_id
-        )
+        result = auth_repo.check_access_with_share_validation(test_share, test_recipient_id)
         stats = counter.detach("check_access_with_share_validation()")
         steps.append(
             {

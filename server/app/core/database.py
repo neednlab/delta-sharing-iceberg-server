@@ -134,9 +134,7 @@ shared_tables = Table(
     Column("updated_at", Integer, nullable=False),
     UniqueConstraint("share_id", "linked_schema_id", "metastore_db", "metastore_table"),
     ForeignKeyConstraint(["share_id"], ["shares.share_id"], ondelete="CASCADE"),
-    ForeignKeyConstraint(
-        ["linked_schema_id"], ["shared_schemas.schema_id"], ondelete="CASCADE"
-    ),
+    ForeignKeyConstraint(["linked_schema_id"], ["shared_schemas.schema_id"], ondelete="CASCADE"),
 )
 
 recipient_shares = Table(
@@ -148,9 +146,7 @@ recipient_shares = Table(
     Column("granted_at", Integer, nullable=False),
     Column("granted_by", String),
     UniqueConstraint("recipient_id", "share_id"),
-    ForeignKeyConstraint(
-        ["recipient_id"], ["recipients.recipient_id"], ondelete="CASCADE"
-    ),
+    ForeignKeyConstraint(["recipient_id"], ["recipients.recipient_id"], ondelete="CASCADE"),
     ForeignKeyConstraint(["share_id"], ["shares.share_id"], ondelete="CASCADE"),
 )
 
@@ -387,9 +383,7 @@ class Database:
             pool_config: PoolConfig 配置实例。
         """
         pool_type = pool_config.pool_type if is_sqlite else "queue_pool"
-        if pool_type == "null_pool" or (
-            is_sqlite and pool_config.pool_type == "null_pool"
-        ):
+        if pool_type == "null_pool" or (is_sqlite and pool_config.pool_type == "null_pool"):
             pool_desc = "pool_type=NullPool (SQLite 读密集型优化)"
         else:
             pool_desc = (

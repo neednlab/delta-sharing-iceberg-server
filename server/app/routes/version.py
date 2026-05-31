@@ -134,9 +134,7 @@ async def get_table_version(
 
     if timestamp is not None:
         timestamp_ms = parse_iso8601_timestamp(timestamp)
-        snapshot_info = version_service.get_version_by_timestamp(
-            share, schema, table, timestamp_ms
-        )
+        snapshot_info = version_service.get_version_by_timestamp(share, schema, table, timestamp_ms)
         if snapshot_info is None:
             raise_audited_error(
                 audit_logger,

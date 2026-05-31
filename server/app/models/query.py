@@ -6,7 +6,7 @@ Query 模型模块
 """
 
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class QueryRequest(BaseModel):
@@ -16,8 +16,8 @@ class QueryRequest(BaseModel):
     符合 Delta Sharing 协议 Query Table API 规范。
 
     Attributes:
-        predicateHints: 谓词提示列表（JSON 字符串数组格式）。
-        jsonPredicateHints: JSON 格式的谓词提示字符串。
+        predicateHints: 谓词提示列表（JSON 字符串数组格式），最多 200 条。
+        jsonPredicateHints: JSON 格式的谓词提示字符串，最大 256KB。
         limitHint: 返回文件数量限制提示。
         version: 表版本号，用于时间旅行查询。
         timestamp: 时间戳字符串，用于时间旅行查询。
@@ -25,8 +25,8 @@ class QueryRequest(BaseModel):
         endingVersion: 结束版本号，用于CDF查询。
     """
 
-    predicateHints: Optional[List[str]] = None
-    jsonPredicateHints: Optional[str] = None
+    predicateHints: Optional[List[str]] = Field(None, max_length=200)
+    jsonPredicateHints: Optional[str] = Field(None, max_length=256_000)
     limitHint: Optional[int] = None
     version: Optional[int] = None
     timestamp: Optional[str] = None

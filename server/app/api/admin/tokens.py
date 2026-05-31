@@ -95,9 +95,7 @@ async def create_token(
         logger.exception(f"Unexpected error creating token for recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_CREATE_TOKEN",
             request=request,
             category="admin",
@@ -156,9 +154,7 @@ async def list_tokens(
         logger.exception(f"Unexpected error listing tokens for recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_LIST_TOKENS",
             request=request,
             category="admin",
@@ -221,9 +217,7 @@ async def revoke_token(
         logger.exception(f"Unexpected error revoking token for recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(
-                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
-            ),
+            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
             "ADMIN_REVOKE_TOKEN",
             request=request,
             category="admin",
