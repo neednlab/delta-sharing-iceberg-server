@@ -71,6 +71,7 @@ from app.core.cache import (
     _metadata_content_cache,
     _manifest_list_cache,
     _manifest_cache,
+    _sync_flag_cache,
 )
 
 
@@ -429,6 +430,11 @@ class IcebergService:
         self._dlc_client: Optional[DLCClientWrapper] = None
         self._init_dlc_client()
 
+        # 延迟导入避免循环依赖
+        from app.services.version_service import VersionService
+
+        self._version_service = VersionService()
+
     def _init_dlc_client(self) -> None:
         """初始化 DLC 客户端。"""
         if self.config.dlc.secret_id and self.config.dlc.secret_key:
@@ -629,7 +635,12 @@ class IcebergService:
                 status_code=404,
             )
 
-        return self._load_metadata_from_location(metadata_location)
+        metadata = self._load_metadata_from_location(metadata_location)
+
+        # 每次元数据加载后自动同步所有 snapshot 到 snapshot_version 表
+        self._sync_all_snapshots_to_version_table(share_name, schema_name, table_name, metadata)
+
+        return metadata
 
     def _load_metadata_from_location(self, metadata_location: str) -> Dict[str, Any]:
         """从指定位置加载元数据（带请求级缓存）。
@@ -690,6 +701,60 @@ class IcebergService:
         # 将解析结果存入请求级缓存
         _metadata_content_cache.set(cache_key, metadata)
         return metadata
+
+    def _sync_all_snapshots_to_version_table(
+        self,
+        share_name: str,
+        schema_name: str,
+        table_name: str,
+        metadata: Dict[str, Any],
+    ) -> None:
+        """将 metadata JSON 中所有 snapshot 同步到 snapshot_version 表。
+
+        每次元数据加载后自动调用，遍历 snapshots 数组按 timestamp-ms 升序
+        逐个调用 get_or_allocate_version() 幂等写入。已存在的 snapshot 会被跳过。
+        利用请求级 _sync_flag_cache 缓存标记，同一请求内同一表仅同步一次。
+
+        Args:
+            share_name: Share 名称。
+            schema_name: Schema 名称。
+            table_name: 表名称。
+            metadata: Iceberg 元数据字典，包含 snapshots 数组。
+        """
+        cache_key = self._get_table_cache_key(share_name, schema_name, table_name)
+
+        # 请求级去重：同一请求内同一表仅同步一次
+        if _sync_flag_cache.get(cache_key) is not None:
+            logger.debug(f"Snapshot sync already performed for {cache_key}, skipping")
+            return
+
+        snapshots = metadata.get("snapshots", [])
+        if not snapshots:
+            logger.debug(f"No snapshots found in metadata for {cache_key}, skipping sync")
+            _sync_flag_cache.set(cache_key, True)
+            return
+
+        # 按 timestamp-ms 升序排序，确保最早 snapshot 获得最小 version
+        sorted_snapshots = sorted(snapshots, key=lambda s: s.get("timestamp-ms", 0) or 0)
+
+        synced_count = 0
+        for snapshot in sorted_snapshots:
+            snapshot_id = snapshot.get("snapshot-id")
+            timestamp_ms = int(snapshot.get("timestamp-ms", 0) or 0)
+            if snapshot_id is not None:
+                version = self._version_service.get_or_allocate_version(
+                    share_name, schema_name, table_name, snapshot_id, timestamp_ms
+                )
+                logger.debug(
+                    f"Snapshot sync: {cache_key} snapshot_id={snapshot_id} → version={version}"
+                )
+                synced_count += 1
+
+        logger.info(
+            f"Snapshot sync completed for {cache_key}: "
+            f"{synced_count} snapshots processed (total in metadata: {len(sorted_snapshots)})"
+        )
+        _sync_flag_cache.set(cache_key, True)
 
     def get_current_snapshot_id(
         self, share_name: str, schema_name: str, table_name: str
