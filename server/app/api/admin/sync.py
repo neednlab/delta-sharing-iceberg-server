@@ -173,7 +173,9 @@ async def sync_tables(request_data: SyncTablesRequest, request: Request = None):
         )
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_SYNC_TABLES",
             request=request,
             category="admin",

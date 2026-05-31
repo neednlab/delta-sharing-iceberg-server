@@ -449,7 +449,9 @@ def _build_table_config(data: dict) -> TableConfig:
     return tc
 
 
-def get_table_config(share_name: str, schema_name: str, table_name: str) -> Optional[TableConfig]:
+def get_table_config(
+    share_name: str, schema_name: str, table_name: str
+) -> Optional[TableConfig]:
     """获取指定表的配置信息。
 
     根据 Share、Schema 和表名查找对应的表配置。查找时不区分大小写。
@@ -688,7 +690,9 @@ def get_schema_tables(share_name: str, schema_name: str) -> Dict[str, TableConfi
     return _get_tables_from_config(share_name, schema_name)
 
 
-def _get_tables_from_database(share_name: str, schema_name: str) -> Dict[str, TableConfig]:
+def _get_tables_from_database(
+    share_name: str, schema_name: str
+) -> Dict[str, TableConfig]:
     """从数据库获取指定 Schema 下的所有表配置。
 
     Args:
@@ -709,7 +713,9 @@ def _get_tables_from_database(share_name: str, schema_name: str) -> Dict[str, Ta
     return result
 
 
-def _get_tables_from_config(share_name: str, schema_name: str) -> Dict[str, TableConfig]:
+def _get_tables_from_config(
+    share_name: str, schema_name: str
+) -> Dict[str, TableConfig]:
     """从配置文件获取指定 Schema 下的所有表配置。
 
     Args:
@@ -788,7 +794,9 @@ def _get_all_tables_from_database(share_name: str) -> Dict[str, Dict[str, TableC
     for schema_name_lower, tables_dict in all_tables_dict.items():
         result[schema_name_lower] = {}
         for table_name_lower, table_data in tables_dict.items():
-            result[schema_name_lower][table_name_lower] = _build_table_config(table_data)
+            result[schema_name_lower][table_name_lower] = _build_table_config(
+                table_data
+            )
     return result
 
 
@@ -1006,20 +1014,36 @@ def _validate_pool_config(config: Config) -> None:
 def _validate_page_token_secret(config: Config) -> None:
     """校验 PAGE_TOKEN_SECRET 配置。
 
-    若未设置则输出 WARNING 日志并使用 secrets.token_hex(32) 生成随机临时密钥。
-    随机密钥在每次进程启动时重新生成，旧 token 在重启后失效。
+    production 模式（ENV=production 或 ENV 未设置）下，未配置 PAGE_TOKEN_SECRET
+    时拒绝启动；development 模式（ENV=development）下生成随机密钥并输出 WARNING。
 
     Args:
         config: 全局配置对象。
+
+    Raises:
+        DeltaSharingError: production 模式下未配置 PAGE_TOKEN_SECRET 时抛出。
     """
     secret = (config.token.page_token_secret or "").strip()
+    env = (os.environ.get("ENV", "") or "").strip().lower()
+
     if not secret:
-        logger.warning(
-            "PAGE_TOKEN_SECRET 未设置，将使用随机临时密钥。"
-            "生产环境请通过环境变量 PAGE_TOKEN_SECRET 配置固定密钥，"
-            "否则每次重启服务后所有旧 page token 将失效"
-        )
-        config.token.page_token_secret = secrets.token_hex(32)
+        if env == "development":
+            config.token.page_token_secret = secrets.token_hex(32)
+            logger.warning(
+                "PAGE_TOKEN_SECRET 未设置，已生成随机临时密钥。"
+                "生产环境请通过环境变量 PAGE_TOKEN_SECRET 配置固定密钥，"
+                "否则每次重启服务后所有旧 page token 将失效"
+            )
+        else:
+            raise DeltaSharingError(
+                ErrorCode.INVALID_PARAMETER_VALUE,
+                "PAGE_TOKEN_SECRET is not configured. "
+                "Please set the PAGE_TOKEN_SECRET environment variable "
+                "before starting the server in production mode. "
+                "Run 'scripts/setup_env.ps1' (Windows) or "
+                "'scripts/setup_env.sh' (Linux) to generate a secure secret. "
+                "To skip this check in development, set ENV=development.",
+            )
     else:
         logger.info("PAGE_TOKEN_SECRET 已配置")
 

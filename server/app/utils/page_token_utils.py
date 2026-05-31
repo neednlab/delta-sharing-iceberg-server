@@ -13,30 +13,46 @@ import binascii
 import hashlib
 import hmac
 import json
-import secrets
+import time
 from typing import Optional
 
 from loguru import logger
+
+PAGE_TOKEN_TTL_SECONDS = 86400
+
+
+def _get_current_timestamp() -> int:
+    """获取当前 Unix 时间戳（秒）。
+
+    统一时间戳获取方式，便于测试时 mock 和替换。
+
+    Returns:
+        当前 UTC 时间的 Unix 时间戳（整数秒）。
+    """
+    return int(time.time())
 
 
 def _get_token_secret() -> str:
     """获取 page token HMAC 签名密钥。
 
-    从全局配置中读取 page_token_secret，若未配置则生成随机临时密钥并警告。
+    从全局配置中读取 page_token_secret，若为空则抛出 RuntimeError。
+    该函数假设启动时 _validate_page_token_secret() 已确保非生产模式下密钥非空。
 
     Returns:
         HMAC 签名密钥字符串。
+
+    Raises:
+        RuntimeError: 密钥为空时抛出（理论上不应发生）。
     """
     from app.core.config import get_config
 
     config = get_config()
-    secret = config.token.page_token_secret
+    secret = (config.token.page_token_secret or "").strip()
 
     if not secret:
-        secret = secrets.token_hex(32)
-        logger.warning(
-            "PAGE_TOKEN_SECRET 未设置，已生成随机临时密钥。"
-            "生产环境请通过环境变量 PAGE_TOKEN_SECRET 配置固定密钥"
+        raise RuntimeError(
+            "PAGE_TOKEN_SECRET is not configured. "
+            "This should have been caught by startup validation."
         )
 
     return secret
@@ -46,10 +62,11 @@ def encode_page_token(offset: int) -> str:
     """将偏移量编码为安全的 page token。
 
     编码流程:
-        1. 将 offset 序列化为紧凑 JSON payload
-        2. 使用 HMAC-SHA256 对 payload 签名
-        3. 组装 {"payload": ..., "sig": ...} 结构体
-        4. Base64 编码整个结构体
+        1. 获取当前时间戳
+        2. 将 offset、iat（签发时间戳）、exp（过期时间戳）序列化为紧凑 JSON payload
+        3. 使用 HMAC-SHA256 对 payload 签名
+        4. 组装 {"payload": ..., "sig": ...} 结构体
+        5. Base64 编码整个结构体
 
     Args:
         offset: 分页偏移量（非负整数）。
@@ -59,7 +76,11 @@ def encode_page_token(offset: int) -> str:
     """
     secret = _get_token_secret()
 
-    payload = json.dumps({"offset": offset}, separators=(",", ":"))
+    now = _get_current_timestamp()
+    payload = json.dumps(
+        {"offset": offset, "iat": now, "exp": now + PAGE_TOKEN_TTL_SECONDS},
+        separators=(",", ":"),
+    )
 
     sig = hmac.new(
         secret.encode("utf-8"),
@@ -67,7 +88,9 @@ def encode_page_token(offset: int) -> str:
         hashlib.sha256,
     ).hexdigest()
 
-    token_structure = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
+    token_structure = json.dumps(
+        {"payload": payload, "sig": sig}, separators=(",", ":")
+    )
 
     return base64.urlsafe_b64encode(token_structure.encode("utf-8")).decode("ascii")
 
@@ -154,12 +177,27 @@ def decode_page_token(token: str) -> Optional[int]:
         logger.warning("Page token payload missing 'offset' key")
         return None
 
-    if not isinstance(offset, int):
-        logger.warning(f"Page token offset type error: expected int, got {type(offset).__name__}")
+    if not isinstance(offset, int) or isinstance(offset, bool):
+        logger.warning(
+            f"Page token offset type error: expected int, got {type(offset).__name__}"
+        )
         return None
 
     if offset < 0:
         logger.warning(f"Page token negative offset: {offset}")
         return None
+
+    # 步骤 8: 过期检查（向后兼容：旧格式 token 无 exp 字段时跳过校验）
+    exp = inner.get("exp")
+    if exp is not None:
+        if not isinstance(exp, (int, float)):
+            logger.warning(
+                f"Page token exp type error: expected int/float, got {type(exp).__name__}"
+            )
+            return None
+        current_time = _get_current_timestamp()
+        if exp <= current_time:
+            logger.warning(f"Page token expired: exp={exp}, current={current_time}")
+            return None
 
     return offset

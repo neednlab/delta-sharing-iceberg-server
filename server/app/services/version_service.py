@@ -96,7 +96,9 @@ class VersionService:
         Raises:
             DeltaSharingError: 当指定版本不存在时抛出 INVALID_REQUEST 错误。
         """
-        result = self._version_repo.find_by_version(share_name, schema_name, table_name, version)
+        result = self._version_repo.find_by_version(
+            share_name, schema_name, table_name, version
+        )
         if result is None:
             raise DeltaSharingError(
                 error_code=ErrorCode.INVALID_REQUEST,

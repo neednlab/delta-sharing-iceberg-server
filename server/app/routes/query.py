@@ -50,7 +50,9 @@ async def query_table(
     table: str = Path(..., max_length=256, pattern=r"^[a-zA-Z0-9_\-\.]+$"),
     query_request: QueryRequest = QueryRequest(),
     request: Request = None,
-    delta_sharing_capabilities: Optional[str] = Header(None, alias="delta-sharing-capabilities"),
+    delta_sharing_capabilities: Optional[str] = Header(
+        None, alias="delta-sharing-capabilities"
+    ),
     recipient_id: str = Depends(get_current_recipient),
 ):
     """查询表数据文件。
@@ -167,7 +169,9 @@ async def query_table(
 
         if query_version is not None:
             # 按 version 查找快照（逆向查询）
-            snapshot_info = version_service.get_by_version(share, schema, table, query_version)
+            snapshot_info = version_service.get_by_version(
+                share, schema, table, query_version
+            )
             if snapshot_info is None:
                 error = DeltaSharingError(
                     error_code=ErrorCode.INVALID_REQUEST,
@@ -401,7 +405,11 @@ async def query_table(
         )
 
         metadata_response = iceberg_service.get_table_metadata(
-            share, schema, table, table_config=table_config, preloaded_data_files=data_files
+            share,
+            schema,
+            table,
+            table_config=table_config,
+            preloaded_data_files=data_files,
         )
 
         if metadata_response is None:
@@ -437,11 +445,15 @@ async def query_table(
             numFiles=metadata_response.get("num_files"),
         )
 
-        min_expiration = file_objects[0]["expirationTimestamp"] if file_objects else None
+        min_expiration = (
+            file_objects[0]["expirationTimestamp"] if file_objects else None
+        )
 
         file_paths = None
         if config.logging.audit_log_level == "DEBUG":
-            file_paths = [f.get("file_path") for f in filtered_files if f.get("file_path")]
+            file_paths = [
+                f.get("file_path") for f in filtered_files if f.get("file_path")
+            ]
 
         audit_ctx = QueryAuditContext(
             share=share,
@@ -479,7 +491,9 @@ async def query_table(
         )
 
         response_version = (
-            query_display_version if query_display_version is not None else current_version
+            query_display_version
+            if query_display_version is not None
+            else current_version
         )
 
         return generate_ndjson_response(

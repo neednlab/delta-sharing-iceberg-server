@@ -9,10 +9,16 @@ import base64
 import json
 import hashlib
 import hmac
+import time
 
 import pytest
 
-from app.utils.page_token_utils import encode_page_token, decode_page_token, _get_token_secret
+from app.utils.page_token_utils import (
+    encode_page_token,
+    decode_page_token,
+    _get_token_secret,
+    PAGE_TOKEN_TTL_SECONDS,
+)
 
 
 SECRET_A = "test-secret-a"
@@ -21,9 +27,18 @@ SECRET_B = "test-secret-b"
 
 @pytest.fixture(autouse=True)
 def _patch_token_secret(monkeypatch):
-    """每个测试用例自动将 _get_token_secret 打桩为固定密钥 SECRET_A。"""
+    """每个测试用例自动将 _get_token_secret 打桩为固定密钥 SECRET_A。
+
+    需要同时打桩两个位置：
+    1. app.utils.page_token_utils._get_token_secret（模块内部 encode/decode 引用）
+    2. tests.test_page_token_utils._get_token_secret（测试模块 _build_tampered_token 引用）
+    """
     monkeypatch.setattr(
         "app.utils.page_token_utils._get_token_secret",
+        lambda: SECRET_A,
+    )
+    monkeypatch.setattr(
+        "tests.test_page_token_utils._get_token_secret",
         lambda: SECRET_A,
     )
 
@@ -91,7 +106,9 @@ class TestDecodeTamperedPayload:
         outer = json.loads(raw_bytes)
         tampered_inner = '{"offset":999}'
         outer["payload"] = tampered_inner
-        tampered_token = base64.urlsafe_b64encode(json.dumps(outer).encode("utf-8")).decode("ascii")
+        tampered_token = base64.urlsafe_b64encode(
+            json.dumps(outer).encode("utf-8")
+        ).decode("ascii")
 
         assert decode_page_token(tampered_token) is None
 
@@ -102,7 +119,9 @@ class TestDecodeTamperedPayload:
         raw_bytes = base64.urlsafe_b64decode(original_token)
         outer = json.loads(raw_bytes)
         outer["sig"] = "0" * 64
-        tampered_token = base64.urlsafe_b64encode(json.dumps(outer).encode("utf-8")).decode("ascii")
+        tampered_token = base64.urlsafe_b64encode(
+            json.dumps(outer).encode("utf-8")
+        ).decode("ascii")
 
         assert decode_page_token(tampered_token) is None
 
@@ -247,6 +266,116 @@ class TestDecodeEdgeCases:
         assert decode_page_token(token) is None
 
 
+class TestTokenExpiration:
+    """Token 过期机制测试。"""
+
+    def test_expired_token_returns_none(self, monkeypatch):
+        """过期 token 应返回 None。"""
+        # 在当前时间编码一个 token
+        fixed_now = 1000
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: fixed_now,
+        )
+        token = encode_page_token(42)
+
+        # 将时间拨到过期之后（TTL 已过）
+        future_time = fixed_now + PAGE_TOKEN_TTL_SECONDS + 1
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: future_time,
+        )
+
+        assert decode_page_token(token) is None
+
+    def test_non_expired_token_decoded(self, monkeypatch):
+        """未过期 token 应正常解码。"""
+        fixed_now = 1000
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: fixed_now,
+        )
+        token = encode_page_token(42)
+
+        # 时间前进至过期前最后一秒
+        future_time = fixed_now + PAGE_TOKEN_TTL_SECONDS - 1
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: future_time,
+        )
+
+        assert decode_page_token(token) == 42
+
+    def test_token_expires_exactly_at_ttl_boundary(self, monkeypatch):
+        """token 恰好在过期边界（exp == current_time）时应视为过期。"""
+        fixed_now = 1000
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: fixed_now,
+        )
+        token = encode_page_token(42)
+
+        # 时间精确到过期那一刻
+        future_time = fixed_now + PAGE_TOKEN_TTL_SECONDS
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: future_time,
+        )
+
+        assert decode_page_token(token) is None
+
+
+class TestBackwardCompatibility:
+    """旧格式 token（无 exp 字段）向后兼容测试。"""
+
+    def test_old_format_token_without_exp_is_accepted(self):
+        """无 exp 字段的旧格式 token 应跳过过期校验，正常解码。"""
+        token = _build_tampered_token({"offset": 99})
+        assert decode_page_token(token) == 99
+
+    def test_old_format_token_without_iat_is_accepted(self):
+        """无 iat 字段的旧格式 token 应正常解码。"""
+        token = _build_tampered_token({"offset": 555})
+        assert decode_page_token(token) == 555
+
+
+class TestIatField:
+    """iat 字段正确嵌入测试。"""
+
+    def test_encode_embeds_iat_in_payload(self, monkeypatch):
+        """encode_page_token 应在 payload 中嵌入当前时间戳作为 iat。"""
+        fixed_now = int(time.time())
+        monkeypatch.setattr(
+            "app.utils.page_token_utils._get_current_timestamp",
+            lambda: fixed_now,
+        )
+
+        token = encode_page_token(7)
+        raw = json.loads(base64.urlsafe_b64decode(token))
+        inner = json.loads(raw["payload"])
+
+        assert inner["iat"] == fixed_now
+        assert inner["offset"] == 7
+        assert inner["exp"] == fixed_now + PAGE_TOKEN_TTL_SECONDS
+
+    def test_iat_is_integer(self):
+        """iat 字段应为整数类型的时间戳。"""
+        token = encode_page_token(1)
+        raw = json.loads(base64.urlsafe_b64decode(token))
+        inner = json.loads(raw["payload"])
+
+        assert isinstance(inner["iat"], int)
+        assert inner["iat"] > 0
+
+    def test_iat_and_exp_relationship(self):
+        """exp 应等于 iat + TTL。"""
+        token = encode_page_token(1)
+        raw = json.loads(base64.urlsafe_b64decode(token))
+        inner = json.loads(raw["payload"])
+
+        assert inner["exp"] == inner["iat"] + PAGE_TOKEN_TTL_SECONDS
+
+
 def _build_tampered_token(inner_payload: dict) -> str:
     """构建一个带有合法 HMAC 签名但自定义 inner_payload 的 token。
 
@@ -267,5 +396,7 @@ def _build_tampered_token(inner_payload: dict) -> str:
         payload.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-    token_structure = json.dumps({"payload": payload, "sig": sig}, separators=(",", ":"))
+    token_structure = json.dumps(
+        {"payload": payload, "sig": sig}, separators=(",", ":")
+    )
     return base64.urlsafe_b64encode(token_structure.encode("utf-8")).decode("ascii")

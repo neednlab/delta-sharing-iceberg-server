@@ -79,7 +79,9 @@ class Table(BaseModel):
     id: str = Field(alias="id")
     share_id: Optional[str] = Field(default=None, alias="shareId")
     location: Optional[str] = Field(default=None, alias="location")
-    auxiliary_locations: Optional[List[str]] = Field(default=None, alias="auxiliaryLocations")
+    auxiliary_locations: Optional[List[str]] = Field(
+        default=None, alias="auxiliaryLocations"
+    )
     access_modes: Optional[List[str]] = Field(default=None, alias="accessModes")
 
     model_config = {"populate_by_name": True}

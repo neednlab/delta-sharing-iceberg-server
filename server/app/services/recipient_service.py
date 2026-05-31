@@ -35,7 +35,9 @@ class RecipientService:
     # Recipient CRUD 操作
     # ------------------------------------------------------------------
 
-    def create_recipient(self, name: str, comment: Optional[str] = None) -> Dict[str, Any]:
+    def create_recipient(
+        self, name: str, comment: Optional[str] = None
+    ) -> Dict[str, Any]:
         """创建新的 Recipient。
 
         委托 RecipientRepository.create() 执行数据库写入。

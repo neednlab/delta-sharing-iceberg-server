@@ -57,7 +57,9 @@ class TestRaiseAuditedErrorKwargsPassthrough:
     def test_share_name_kwarg_passed_through(self):
         """验证 share_name=xxx 能透传至 audit_logger.log()。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.SHARE_NOT_FOUND, "Share not found", status_code=404)
+        error = DeltaSharingError(
+            ErrorCode.SHARE_NOT_FOUND, "Share not found", status_code=404
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(
@@ -76,7 +78,9 @@ class TestRaiseAuditedErrorKwargsPassthrough:
     def test_token_hash_kwarg_passed_through(self):
         """验证 token_hash=xxx 能透传至 audit_logger.log()。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.INVALID_TOKEN, "Token not found", status_code=404)
+        error = DeltaSharingError(
+            ErrorCode.INVALID_TOKEN, "Token not found", status_code=404
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(
@@ -127,7 +131,9 @@ class TestRaiseAuditedErrorHttpException:
     def test_raises_http_exception_with_status_code(self):
         """验证抛出的 HTTPException 状态码与 error 一致。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Server error", status_code=500)
+        error = DeltaSharingError(
+            ErrorCode.INTERNAL_ERROR, "Server error", status_code=500
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             raise_audited_error(audit_logger, error, "TEST_OP")
@@ -137,7 +143,9 @@ class TestRaiseAuditedErrorHttpException:
     def test_raises_http_exception_with_error_detail(self):
         """验证抛出的 HTTPException detail 包含 error_code 和 message。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.SHARE_NOT_FOUND, "Share 'x' not found", status_code=404)
+        error = DeltaSharingError(
+            ErrorCode.SHARE_NOT_FOUND, "Share 'x' not found", status_code=404
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             raise_audited_error(audit_logger, error, "TEST_OP")
@@ -149,7 +157,9 @@ class TestRaiseAuditedErrorHttpException:
     def test_audit_logger_called_with_error_info(self):
         """验证 audit_logger.log() 收到正确的 error_code 和 error_message。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.COS_ACCESS_ERROR, "COS failed", status_code=503)
+        error = DeltaSharingError(
+            ErrorCode.COS_ACCESS_ERROR, "COS failed", status_code=503
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(audit_logger, error, "TEST_OP")
@@ -215,7 +225,9 @@ class TestRaiseAuditedErrorRequestNone:
     def test_request_none_with_extra_kwargs(self):
         """验证 request=None + 额外 kwargs 的组合场景。"""
         audit_logger = self._make_audit_logger_mock()
-        error = DeltaSharingError(ErrorCode.RECIPIENT_NOT_FOUND, "Not found", status_code=404)
+        error = DeltaSharingError(
+            ErrorCode.RECIPIENT_NOT_FOUND, "Not found", status_code=404
+        )
 
         with pytest.raises(HTTPException):
             raise_audited_error(

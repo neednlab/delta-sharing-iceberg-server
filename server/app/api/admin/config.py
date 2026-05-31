@@ -55,7 +55,9 @@ async def get_app_config(request: Request = None):
         logger.exception("Unexpected error getting app config")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_GET_CONFIG",
             request=request,
             category="admin",

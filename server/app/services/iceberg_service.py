@@ -127,7 +127,9 @@ class IcebergSchemaConverter:
         elif type_str in ("binary", "fixed"):
             return BinaryType()
         elif type_str.startswith("decimal") or type_str.startswith("numeric"):
-            match = re.match(r"(?:decimal|numeric)\(\s*(\d+)\s*,\s*(\d+)\s*\)", type_str)
+            match = re.match(
+                r"(?:decimal|numeric)\(\s*(\d+)\s*,\s*(\d+)\s*\)", type_str
+            )
             if match:
                 precision = int(match.group(1))
                 scale = int(match.group(2))
@@ -136,7 +138,9 @@ class IcebergSchemaConverter:
         elif type_str == "struct":
             return StructType(fields=[])
         elif type_str == "list":
-            return ListType(element_id=0, element_type=StringType(), element_required=True)
+            return ListType(
+                element_id=0, element_type=StringType(), element_required=True
+            )
         elif type_str == "map":
             return MapType(
                 key_id=0,
@@ -187,7 +191,9 @@ class IcebergSchemaConverter:
         elif type_name == "struct":
             fields_list = []
             for idx, f in enumerate(type_value.get("fields", [])):
-                sub_type = IcebergSchemaConverter._parse_field_type_any(f.get("type", "string"))
+                sub_type = IcebergSchemaConverter._parse_field_type_any(
+                    f.get("type", "string")
+                )
                 fields_list.append(
                     NestedField(
                         field_id=f.get("id", idx + 1),
@@ -198,7 +204,9 @@ class IcebergSchemaConverter:
                 )
             return StructType(fields=tuple(fields_list))
         elif type_name == "map":
-            key_type = IcebergSchemaConverter._parse_field_type_any(type_value.get("key", "string"))
+            key_type = IcebergSchemaConverter._parse_field_type_any(
+                type_value.get("key", "string")
+            )
             value_type = IcebergSchemaConverter._parse_field_type_any(
                 type_value.get("value", "string")
             )
@@ -241,7 +249,9 @@ class IcebergSchemaConverter:
                 fields.append(
                     {
                         "name": sub_field.name,
-                        "type": IcebergSchemaConverter._type_value(sub_field.field_type),
+                        "type": IcebergSchemaConverter._type_value(
+                            sub_field.field_type
+                        ),
                         "nullable": not sub_field.required,
                         "metadata": {},
                     }
@@ -250,7 +260,9 @@ class IcebergSchemaConverter:
         elif isinstance(field_type, ListType):
             return {
                 "type": "array",
-                "elementType": IcebergSchemaConverter._type_value(field_type.element_type),
+                "elementType": IcebergSchemaConverter._type_value(
+                    field_type.element_type
+                ),
                 "containsNull": not field_type.element_field.required,
             }
         elif isinstance(field_type, MapType):
@@ -335,7 +347,9 @@ class IcebergSchemaConverter:
         }
 
     @staticmethod
-    def convert_list(list_type: ListType, name: str, is_nullable: bool = False) -> Dict[str, Any]:
+    def convert_list(
+        list_type: ListType, name: str, is_nullable: bool = False
+    ) -> Dict[str, Any]:
         """转换列表类型字段。
 
         Args:
@@ -355,7 +369,9 @@ class IcebergSchemaConverter:
         }
 
     @staticmethod
-    def convert_map(map_type: MapType, name: str, is_nullable: bool = False) -> Dict[str, Any]:
+    def convert_map(
+        map_type: MapType, name: str, is_nullable: bool = False
+    ) -> Dict[str, Any]:
         """转换映射类型字段。
 
         Args:
@@ -388,11 +404,17 @@ class IcebergSchemaConverter:
         fields = []
         for field in iceberg_schema.fields:
             if isinstance(field.field_type, StructType):
-                fields.append(cls.convert_struct(field.field_type, field.name, not field.required))
+                fields.append(
+                    cls.convert_struct(field.field_type, field.name, not field.required)
+                )
             elif isinstance(field.field_type, ListType):
-                fields.append(cls.convert_list(field.field_type, field.name, not field.required))
+                fields.append(
+                    cls.convert_list(field.field_type, field.name, not field.required)
+                )
             elif isinstance(field.field_type, MapType):
-                fields.append(cls.convert_map(field.field_type, field.name, not field.required))
+                fields.append(
+                    cls.convert_map(field.field_type, field.name, not field.required)
+                )
             else:
                 fields.append(cls.convert_primitive(field))
 
@@ -441,7 +463,9 @@ class IcebergService:
                 "DLC credentials not configured. Set DLC_SECRET_ID, DLC_SECRET_KEY, DLC_REGION environment variables."
             )
 
-    def _get_table_cache_key(self, share_name: str, schema_name: str, table_name: str) -> str:
+    def _get_table_cache_key(
+        self, share_name: str, schema_name: str, table_name: str
+    ) -> str:
         """生成表缓存键。
 
         Args:
@@ -473,7 +497,9 @@ class IcebergService:
         cache_key = self._get_table_cache_key(share_name, schema_name, table_name)
         cached = _metadata_location_cache.get(cache_key)
         if cached is not None:
-            logger.debug(f"Using request-cached metadata_location for table {cache_key}")
+            logger.debug(
+                f"Using request-cached metadata_location for table {cache_key}"
+            )
             return cached
 
         if not self._dlc_client:
@@ -503,16 +529,22 @@ class IcebergService:
             logger.info(
                 f"Calling DLC DescribeTable API: database='{database_name}', table='{table_name_for_dlc}'"
             )
-            api_response = self._dlc_client.describe_table(database_name, table_name_for_dlc)
+            api_response = self._dlc_client.describe_table(
+                database_name, table_name_for_dlc
+            )
             metadata_location = DLCClientWrapper.extract_metadata_location(api_response)
             if metadata_location:
                 _metadata_location_cache.set(cache_key, metadata_location)
                 logger.info(f"DLC API returned metadata_location: {metadata_location}")
             else:
-                logger.warning(f"DLC API response missing metadata_location: {api_response}")
+                logger.warning(
+                    f"DLC API response missing metadata_location: {api_response}"
+                )
             return metadata_location
         except DLCAPIError as e:
-            logger.exception(f"DLC API call failed for {share_name}.{schema_name}.{table_name}")
+            logger.exception(
+                f"DLC API call failed for {share_name}.{schema_name}.{table_name}"
+            )
             raise DeltaSharingError(
                 error_code=ErrorCode.DLC_API_ERROR,
                 message=f"DLC API error for {share_name}.{schema_name}.{table_name}: {str(e)}",
@@ -620,7 +652,9 @@ class IcebergService:
                 status_code=400,
             )
 
-        metadata_location = self._get_metadata_location_via_dlc(share_name, schema_name, table_name)
+        metadata_location = self._get_metadata_location_via_dlc(
+            share_name, schema_name, table_name
+        )
         if not metadata_location:
             raise DeltaSharingError(
                 error_code=ErrorCode.TABLE_NOT_FOUND,
@@ -838,7 +872,9 @@ class IcebergService:
                 fields_list = []
                 for f in fields:
                     try:
-                        field_type = IcebergSchemaConverter._parse_field_type_any(f["type"])
+                        field_type = IcebergSchemaConverter._parse_field_type_any(
+                            f["type"]
+                        )
                         fields_list.append(
                             NestedField(
                                 field_id=f["id"],
@@ -928,7 +964,9 @@ class IcebergService:
         Returns:
             缓存的 metadata 字典，如果缓存未命中则返回 None。
         """
-        cache_key_for_location = self._get_table_cache_key(share_name, schema_name, table_name)
+        cache_key_for_location = self._get_table_cache_key(
+            share_name, schema_name, table_name
+        )
         metadata_location = _metadata_location_cache.get(cache_key_for_location)
 
         if not metadata_location:
@@ -981,7 +1019,11 @@ class IcebergService:
 
         if snapshot is None:
             snapshot = self.get_current_snapshot(
-                share_name, schema_name, table_name, table_config=table_config, metadata=metadata
+                share_name,
+                schema_name,
+                table_name,
+                table_config=table_config,
+                metadata=metadata,
             )
         if not snapshot:
             return None
@@ -989,16 +1031,26 @@ class IcebergService:
         snapshot_id = snapshot.get("snapshot-id")
 
         schema_string = self.get_schema_string(
-            share_name, schema_name, table_name, table_config=table_config, metadata=metadata
+            share_name,
+            schema_name,
+            table_name,
+            table_config=table_config,
+            metadata=metadata,
         )
         if not schema_string:
             return None
 
         partition_columns = self.get_partition_columns(
-            share_name, schema_name, table_name, table_config=table_config, metadata=metadata
+            share_name,
+            schema_name,
+            table_name,
+            table_config=table_config,
+            metadata=metadata,
         )
 
-        table_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}"))
+        table_id = str(
+            uuid.uuid5(uuid.NAMESPACE_DNS, f"{share_name}.{schema_name}.{table_name}")
+        )
 
         if preloaded_data_files is not None:
             data_files = preloaded_data_files
@@ -1030,7 +1082,9 @@ class IcebergService:
             "num_files": num_files,
         }
 
-    def _parse_avro_manifest(self, bucket: str, manifest_path: str) -> List[Dict[str, Any]]:
+    def _parse_avro_manifest(
+        self, bucket: str, manifest_path: str
+    ) -> List[Dict[str, Any]]:
         """解析 Avro 格式的清单文件（带请求级缓存）。
 
         优先从请求级缓存读取已解析的 manifest 条目列表，
@@ -1069,11 +1123,15 @@ class IcebergService:
                 f"fastavro failed to parse manifest {manifest_path}: {str(fastavro_err)}"
             )
             try:
-                with DataFileReader(io.BytesIO(manifest_bytes), DatumReader()) as reader:
+                with DataFileReader(
+                    io.BytesIO(manifest_bytes), DatumReader()
+                ) as reader:
                     for entry in reader:
                         entries.append(dict(entry))
             except Exception as avro_err:
-                logger.exception(f"Both fastavro and avro failed to parse manifest {manifest_path}")
+                logger.exception(
+                    f"Both fastavro and avro failed to parse manifest {manifest_path}"
+                )
                 raise DeltaSharingError(
                     error_code=ErrorCode.INTERNAL_ERROR,
                     message=f"Failed to parse manifest file: {manifest_path}",
@@ -1095,7 +1153,9 @@ class IcebergService:
         _manifest_cache.set(cache_key, entries)
         return entries
 
-    def _get_manifest_list_entries(self, bucket: str, manifest_list_path: str) -> List[str]:
+    def _get_manifest_list_entries(
+        self, bucket: str, manifest_list_path: str
+    ) -> List[str]:
         """获取清单列表中的所有清单文件路径（带请求级缓存）。
 
         优先从请求级缓存读取已解析的 manifest-list 内容，
@@ -1117,7 +1177,9 @@ class IcebergService:
             logger.debug(f"Cache HIT: manifest_list key={cache_key}")
             return cached
 
-        logger.debug(f"Cache MISS: manifest_list key={cache_key}  → downloading from COS")
+        logger.debug(
+            f"Cache MISS: manifest_list key={cache_key}  → downloading from COS"
+        )
 
         manifest_paths = []
         manifest_bytes = self.cos_client.get_object(bucket, manifest_list_key)
@@ -1136,7 +1198,9 @@ class IcebergService:
                 f"fastavro failed to parse manifest list {manifest_list_path}: {str(fastavro_err)}"
             )
             try:
-                with DataFileReader(io.BytesIO(manifest_bytes), DatumReader()) as reader:
+                with DataFileReader(
+                    io.BytesIO(manifest_bytes), DatumReader()
+                ) as reader:
                     for entry in reader:
                         manifest_path = entry.get("manifest_path")
                         if manifest_path:
@@ -1159,7 +1223,9 @@ class IcebergService:
         _manifest_list_cache.set(cache_key, manifest_paths)
         return manifest_paths
 
-    def _get_field_id_mapping(self, metadata: Dict[str, Any]) -> Dict[int, Dict[str, Any]]:
+    def _get_field_id_mapping(
+        self, metadata: Dict[str, Any]
+    ) -> Dict[int, Dict[str, Any]]:
         """构建字段 ID 到字段名称和类型的映射。
 
         从 Iceberg 表元数据的 schemas 中获取当前 schema 的字段信息，
@@ -1233,7 +1299,12 @@ class IcebergService:
             elif field_type == "date":
                 if len(raw_value) >= 4:
                     return struct.unpack("<i", raw_value[:4])[0]
-            elif field_type in ("timestamp", "timestamp_ms", "timestamptz", "timestamptz_ms"):
+            elif field_type in (
+                "timestamp",
+                "timestamp_ms",
+                "timestamptz",
+                "timestamptz_ms",
+            ):
                 if len(raw_value) >= 8:
                     return struct.unpack("<q", raw_value[:8])[0]
             elif field_type == "boolean":
@@ -1387,7 +1458,9 @@ class IcebergService:
                     field_info = field_id_mapping.get(fid)
                     if field_info:
                         col_name = field_info["name"]
-                        decoded = self._decode_lower_upper_bound(raw_val, field_info["type"])
+                        decoded = self._decode_lower_upper_bound(
+                            raw_val, field_info["type"]
+                        )
                         if decoded is not None:
                             min_values[col_name] = decoded
 
@@ -1395,7 +1468,9 @@ class IcebergService:
                     field_info = field_id_mapping.get(fid)
                     if field_info:
                         col_name = field_info["name"]
-                        decoded = self._decode_lower_upper_bound(raw_val, field_info["type"])
+                        decoded = self._decode_lower_upper_bound(
+                            raw_val, field_info["type"]
+                        )
                         if decoded is not None:
                             max_values[col_name] = decoded
 
@@ -1465,11 +1540,15 @@ class IcebergService:
             return []
 
         expiration_hours = self.config.presigned_url.expiration_hours
-        expiration_timestamp = int((datetime.now().timestamp() + expiration_hours * 3600) * 1000)
+        expiration_timestamp = int(
+            (datetime.now().timestamp() + expiration_hours * 3600) * 1000
+        )
 
         bucket = table_config.get("bucket", "")
 
-        display_version = query_version if query_version is not None else current_version
+        display_version = (
+            query_version if query_version is not None else current_version
+        )
 
         file_objects = []
         for f in filtered_files:
@@ -1512,7 +1591,9 @@ class IcebergService:
 
             file_objects.append(file_obj)
 
-        logger.info(f"Built {len(file_objects)} file objects (expiration_hours={expiration_hours})")
+        logger.info(
+            f"Built {len(file_objects)} file objects (expiration_hours={expiration_hours})"
+        )
         return file_objects
 
     def _get_table_config(

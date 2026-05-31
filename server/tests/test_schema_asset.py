@@ -141,10 +141,13 @@ class TestSchemaAssetWithDLCSync:
         assert data["tables_synced"] == 3
         assert data["tables_skipped"] == 0
 
-    def test_add_schema_with_dlc_sync_empty_tables(self, client, share, mock_dlc_client_empty):
+    def test_add_schema_with_dlc_sync_empty_tables(
+        self, client, share, mock_dlc_client_empty
+    ):
         """添加 Schema 资产但 DLC 返回空表列表。"""
         with patch(
-            "app.api.admin.share_management.get_dlc_client", return_value=mock_dlc_client_empty
+            "app.api.admin.share_management.get_dlc_client",
+            return_value=mock_dlc_client_empty,
         ):
             response = client.post(
                 f"{ADMIN_BASE}/shares/test_share/objects",
@@ -171,9 +174,13 @@ class TestSchemaAssetWithDLCSync:
     def test_add_schema_dlc_api_error(self, client, share):
         """DLC API 调用失败时返回 500。"""
         mock_client = MagicMock()
-        mock_client.describe_tables.side_effect = DLCAPIError("API Error", code="INTERNAL_ERROR")
+        mock_client.describe_tables.side_effect = DLCAPIError(
+            "API Error", code="INTERNAL_ERROR"
+        )
 
-        with patch("app.api.admin.share_management.get_dlc_client", return_value=mock_client):
+        with patch(
+            "app.api.admin.share_management.get_dlc_client", return_value=mock_client
+        ):
             response = client.post(
                 f"{ADMIN_BASE}/shares/test_share/objects",
                 json={"schema_name": "test_schema", "metastore_db": "dlc_db"},
@@ -207,9 +214,21 @@ class TestSchemaAssetWithDLCSync:
         )
 
         tables = [
-            {"name": "table1", "location": "cos://bucket/table1", "metastore_db": "dlc_database"},
-            {"name": "table2", "location": "cos://bucket/table2", "metastore_db": "dlc_database"},
-            {"name": "table3", "location": "cos://bucket/table3", "metastore_db": "dlc_database"},
+            {
+                "name": "table1",
+                "location": "cos://bucket/table1",
+                "metastore_db": "dlc_database",
+            },
+            {
+                "name": "table2",
+                "location": "cos://bucket/table2",
+                "metastore_db": "dlc_database",
+            },
+            {
+                "name": "table3",
+                "location": "cos://bucket/table3",
+                "metastore_db": "dlc_database",
+            },
         ]
 
         result = repo.create_tables_batch("test_share", "dlc_schema2", tables)
@@ -221,14 +240,23 @@ class TestSchemaAssetWithDLCSync:
 class TestDLCSyncAPI:
     """测试 DLC 表同步 API。"""
 
-    def test_sync_tables_append_mode(self, client, share, repo, mock_dlc_client_with_tables):
+    def test_sync_tables_append_mode(
+        self, client, share, repo, mock_dlc_client_with_tables
+    ):
         """测试增量追加模式同步 Table。"""
         repo.create_schema("test_share", "sync_schema", "sync_database")
 
-        with patch("app.api.admin.sync.get_dlc_client", return_value=mock_dlc_client_with_tables):
+        with patch(
+            "app.api.admin.sync.get_dlc_client",
+            return_value=mock_dlc_client_with_tables,
+        ):
             response = client.post(
                 f"{ADMIN_BASE}/sync/tables",
-                json={"share_name": "test_share", "schema_name": "sync_schema", "mode": "append"},
+                json={
+                    "share_name": "test_share",
+                    "schema_name": "sync_schema",
+                    "mode": "append",
+                },
             )
 
         assert response.status_code == 200
@@ -239,7 +267,9 @@ class TestDLCSyncAPI:
         assert data["skipped_count"] == 0
         assert data["deleted_count"] == 0
 
-    def test_sync_tables_full_mode(self, client, share, repo, mock_dlc_client_with_tables):
+    def test_sync_tables_full_mode(
+        self, client, share, repo, mock_dlc_client_with_tables
+    ):
         """测试全量替换模式同步 Table。"""
         repo.create_schema("test_share", "full_sync_schema", "full_sync_database")
         # 通过 create_tables_batch 预创建 old_table，确保 linked_schema_id 正确关联
@@ -256,7 +286,10 @@ class TestDLCSyncAPI:
             ],
         )
 
-        with patch("app.api.admin.sync.get_dlc_client", return_value=mock_dlc_client_with_tables):
+        with patch(
+            "app.api.admin.sync.get_dlc_client",
+            return_value=mock_dlc_client_with_tables,
+        ):
             response = client.post(
                 f"{ADMIN_BASE}/sync/tables",
                 json={
@@ -276,7 +309,11 @@ class TestDLCSyncAPI:
         """同步不存在的 Share 时返回 404。"""
         response = client.post(
             f"{ADMIN_BASE}/sync/tables",
-            json={"share_name": "nonexistent", "schema_name": "schema", "mode": "append"},
+            json={
+                "share_name": "nonexistent",
+                "schema_name": "schema",
+                "mode": "append",
+            },
         )
 
         assert response.status_code == 404
@@ -287,7 +324,11 @@ class TestDLCSyncAPI:
         """同步不存在的 Schema 时返回 404。"""
         response = client.post(
             f"{ADMIN_BASE}/sync/tables",
-            json={"share_name": "test_share", "schema_name": "nonexistent", "mode": "append"},
+            json={
+                "share_name": "test_share",
+                "schema_name": "nonexistent",
+                "mode": "append",
+            },
         )
 
         assert response.status_code == 404
@@ -300,7 +341,11 @@ class TestDLCSyncAPI:
 
         response = client.post(
             f"{ADMIN_BASE}/sync/tables",
-            json={"share_name": "test_share", "schema_name": "no_dlc_schema", "mode": "append"},
+            json={
+                "share_name": "test_share",
+                "schema_name": "no_dlc_schema",
+                "mode": "append",
+            },
         )
 
         assert response.status_code == 400
@@ -359,8 +404,16 @@ class TestBatchTableOperations:
                 "location": "cos://bucket/existing_table",
                 "metastore_db": "dup_db",
             },
-            {"name": "new_table1", "location": "cos://bucket/new_table1", "metastore_db": "dup_db"},
-            {"name": "new_table2", "location": "cos://bucket/new_table2", "metastore_db": "dup_db"},
+            {
+                "name": "new_table1",
+                "location": "cos://bucket/new_table1",
+                "metastore_db": "dup_db",
+            },
+            {
+                "name": "new_table2",
+                "location": "cos://bucket/new_table2",
+                "metastore_db": "dup_db",
+            },
         ]
 
         result = repo.create_tables_batch("test_share", "dup_schema", tables)

@@ -55,13 +55,17 @@ class TestVersionService:
         mock_repo.allocate.return_value = 7
         result = vs.get_or_allocate_version("s1", "sc1", "t1", 200, 1700000000000)
         assert result == 7
-        mock_repo.allocate.assert_called_once_with("s1", "sc1", "t1", 200, 1700000000000)
+        mock_repo.allocate.assert_called_once_with(
+            "s1", "sc1", "t1", 200, 1700000000000
+        )
 
     def test_update_timestamp_triggered_when_valid(self, vs, mock_repo):
         mock_repo.find_by_snapshot.return_value = 3
         result = vs.get_or_allocate_version("s1", "sc1", "t1", 100, 1700000000000)
         assert result == 3
-        mock_repo.update_timestamp.assert_called_once_with("s1", "sc1", "t1", 100, 1700000000000)
+        mock_repo.update_timestamp.assert_called_once_with(
+            "s1", "sc1", "t1", 100, 1700000000000
+        )
         mock_repo.allocate.assert_not_called()
 
     def test_get_by_version_valid(self, vs, mock_repo):
@@ -134,7 +138,9 @@ class TestVersionEndpoint:
             yield
 
     def test_get_version_no_params(self, test_db, client_dp):
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 200
         assert "delta-table-version" in response.headers
         assert response.headers["delta-table-version"] == "5"
@@ -151,22 +157,30 @@ class TestVersionEndpoint:
         """测试无 token 时 client_dp 的依赖覆盖是否正常工作。
         注意：client_dp 已覆盖 get_current_recipient，所以不会返回 401。
         """
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 200
 
     def test_get_version_share_not_found(self, test_db, client_dp):
         self.mock_auth.check_access_with_share_validation.return_value = None
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 404
 
     def test_get_version_schema_not_found(self, test_db, client_dp):
         self.mock_share.schema_exists.return_value = False
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 404
 
     def test_get_version_table_not_found(self, test_db, client_dp):
         self.mock_share.table_exists.return_value = False
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 404
 
     def test_get_version_access_denied_403(self, test_db, client_dp):
@@ -174,7 +188,9 @@ class TestVersionEndpoint:
             "share_id": "fake-id",
             "authorized": False,
         }
-        response = client_dp.get("/delta-sharing/shares/s1/schemas/sc1/tables/t1/version")
+        response = client_dp.get(
+            "/delta-sharing/shares/s1/schemas/sc1/tables/t1/version"
+        )
         assert response.status_code == 403
 
 

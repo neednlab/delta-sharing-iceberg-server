@@ -130,7 +130,10 @@ def mock_share_service():
     mock.table_exists.return_value = True
     mock.list_schemas.return_value = {"items": []}
     mock.list_tables.return_value = {"items": []}
-    mock.get_table_metadata.return_value = {"name": "ice_t1", "schema": {"name": "myschema"}}
+    mock.get_table_metadata.return_value = {
+        "name": "ice_t1",
+        "schema": {"name": "myschema"},
+    }
     mock.list_shares.return_value = {"items": []}
     mock.query_table.return_value = {"data": []}
     return mock
@@ -153,9 +156,10 @@ def _make_auth_mock(return_value=None, side_effect=None, only_allow_share=None):
     elif side_effect is not None:
         mock.check_access_with_share_validation.side_effect = side_effect
     elif only_allow_share is not None:
-        mock.check_access_with_share_validation.side_effect = (
-            lambda sn, rid: {"share_id": "fake-id", "authorized": sn.lower() == only_allow_share}
-        )
+        mock.check_access_with_share_validation.side_effect = lambda sn, rid: {
+            "share_id": "fake-id",
+            "authorized": sn.lower() == only_allow_share,
+        }
     return mock
 
 
@@ -245,7 +249,9 @@ class TestTokenExpirationAndRevocation:
         data = response.json()
         assert data["errorCode"] == "TOKEN_REVOKED"
 
-    def test_expired_token_on_list_schemas(self, client, expired_token, mock_share_service):
+    def test_expired_token_on_list_schemas(
+        self, client, expired_token, mock_share_service
+    ):
         """过期 token 访问 list_schemas 返回 403。"""
         with patch("app.routes.shares.share_service", mock_share_service):
             response = client.get(
@@ -256,7 +262,9 @@ class TestTokenExpirationAndRevocation:
         data = response.json()
         assert data["errorCode"] == "TOKEN_EXPIRED"
 
-    def test_revoked_token_on_list_tables(self, client, revoked_token, mock_share_service):
+    def test_revoked_token_on_list_tables(
+        self, client, revoked_token, mock_share_service
+    ):
         """已撤销 token 访问 list_tables 返回 403。"""
         with patch("app.routes.shares.share_service", mock_share_service):
             response = client.get(

@@ -154,7 +154,9 @@ class AuditLoggingMiddleware:
                             if not error_message:
                                 error_message = err_data.get("message")
                     except Exception:
-                        logger.debug("Failed to parse error response body for audit logging")
+                        logger.debug(
+                            "Failed to parse error response body for audit logging"
+                        )
 
                 # 错误响应时提取请求头摘要，用于跨境连接问题排查
                 request_headers_summary = None
