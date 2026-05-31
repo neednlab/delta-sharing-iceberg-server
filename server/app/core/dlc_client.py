@@ -12,7 +12,10 @@ from typing import Optional, Dict, Any
 import json
 
 from tencentcloud.dlc.v20210125.dlc_client import DlcClient as DLCClient
-from tencentcloud.dlc.v20210125.models import DescribeTableRequest, DescribeTablesRequest
+from tencentcloud.dlc.v20210125.models import (
+    DescribeTableRequest,
+    DescribeTablesRequest,
+)
 from tencentcloud.common import credential as tc_credential
 from tencentcloud.common.profile import client_profile
 from tencentcloud.common.profile.http_profile import HttpProfile
@@ -110,7 +113,9 @@ class DLCClientWrapper:
         try:
             response = client.DescribeTable(request)
             response_str = (
-                response.to_json_string() if hasattr(response, "to_json_string") else str(response)
+                response.to_json_string()
+                if hasattr(response, "to_json_string")
+                else str(response)
             )
             return {
                 "raw_response": response_str,
@@ -150,7 +155,9 @@ class DLCClientWrapper:
         try:
             response = client.DescribeTables(request)
             response_str = (
-                response.to_json_string() if hasattr(response, "to_json_string") else str(response)
+                response.to_json_string()
+                if hasattr(response, "to_json_string")
+                else str(response)
             )
             parsed = json.loads(response_str) if response_str else {}
 

@@ -60,10 +60,14 @@ async def grant_share_to_recipient(
             share_name=share_name,
         )
     except Exception:
-        logger.exception(f"Unexpected error granting share '{share_name}' to recipient '{name}'")
+        logger.exception(
+            f"Unexpected error granting share '{share_name}' to recipient '{name}'"
+        )
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_GRANT_SHARE",
             request=request,
             category="admin",
@@ -106,7 +110,9 @@ async def list_recipient_shares(
         logger.exception(f"Unexpected error listing shares for recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_LIST_RECIPIENT_SHARES",
             request=request,
             category="admin",
@@ -151,10 +157,14 @@ async def revoke_share_from_recipient(
             share_name=share_name,
         )
     except Exception:
-        logger.exception(f"Unexpected error revoking share '{share_name}' from recipient '{name}'")
+        logger.exception(
+            f"Unexpected error revoking share '{share_name}' from recipient '{name}'"
+        )
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_REVOKE_SHARE",
             request=request,
             category="admin",

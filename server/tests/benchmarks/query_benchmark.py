@@ -48,7 +48,10 @@ def load_credential(credential_path: str) -> dict:
         with open(credential_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"[ERROR] Invalid JSON in credential file '{credential_path}': {e}", file=sys.stderr)
+        print(
+            f"[ERROR] Invalid JSON in credential file '{credential_path}': {e}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     endpoint = data.get("endpoint")
@@ -137,7 +140,9 @@ def heat_up(url: str, bearer_token: str, timeout: float = 120.0) -> bool:
         return False
 
 
-def run_benchmark(url: str, bearer_token: str, rounds: int = 3, timeout: float = 120.0) -> dict:
+def run_benchmark(
+    url: str, bearer_token: str, rounds: int = 3, timeout: float = 120.0
+) -> dict:
     """运行基准测试，记录每次端到端查询耗时。
 
     连续发送 rounds 次正式查询请求，使用 time.perf_counter()
@@ -216,7 +221,9 @@ def main():
     解析命令行参数，加载 credential，执行预热和基准测试，
     最后以 JSON 格式输出结果。
     """
-    parser = argparse.ArgumentParser(description="Delta Sharing Query API Performance Benchmark")
+    parser = argparse.ArgumentParser(
+        description="Delta Sharing Query API Performance Benchmark"
+    )
     parser.add_argument(
         "--credential",
         default=None,

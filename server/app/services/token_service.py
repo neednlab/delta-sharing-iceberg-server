@@ -115,7 +115,9 @@ class TokenService:
 
         return self._create_token(recipient_id, expiration_hours)
 
-    def _create_token(self, recipient_id: str, expiration_hours: int = None) -> Dict[str, Any]:
+    def _create_token(
+        self, recipient_id: str, expiration_hours: int = None
+    ) -> Dict[str, Any]:
         """内部方法：创建 token 并构建 Profile 数据。
 
         委托 TokenRepository 执行 token 创建和持久化。
@@ -130,7 +132,9 @@ class TokenService:
             token 明文仅在此返回一次，调用者应通过 API 响应传递给最终用户。
         """
         exp_hours = (
-            expiration_hours if expiration_hours is not None else self.config.token.expiration_hours
+            expiration_hours
+            if expiration_hours is not None
+            else self.config.token.expiration_hours
         )
 
         token_data = self.token_repo.create(recipient_id, exp_hours)

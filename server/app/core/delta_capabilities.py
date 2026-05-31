@@ -54,12 +54,16 @@ class DeltaSharingCapabilities:
             features_str = ",".join(sorted(self.reader_features))
             parts.append(f"readerFeatures={features_str}")
 
-        parts.append(f"includeEndStreamAction={str(self.include_end_stream_action).lower()}")
+        parts.append(
+            f"includeEndStreamAction={str(self.include_end_stream_action).lower()}"
+        )
 
         return ";".join(parts)
 
 
-def parse_delta_sharing_capabilities(header_value: Optional[str]) -> DeltaSharingCapabilities:
+def parse_delta_sharing_capabilities(
+    header_value: Optional[str],
+) -> DeltaSharingCapabilities:
     """解析 delta-sharing-capabilities header 值。
 
     Header 格式示例:
@@ -102,7 +106,10 @@ def parse_delta_sharing_capabilities(header_value: Optional[str]) -> DeltaSharin
                 else:
                     temp_response_format = ResponseFormat.PARQUET
             else:
-                if original_value in [ResponseFormat.PARQUET.value, ResponseFormat.DELTA.value]:
+                if original_value in [
+                    ResponseFormat.PARQUET.value,
+                    ResponseFormat.DELTA.value,
+                ]:
                     temp_response_format = ResponseFormat(original_value)
                 else:
                     temp_response_format = ResponseFormat.PARQUET
@@ -114,7 +121,10 @@ def parse_delta_sharing_capabilities(header_value: Optional[str]) -> DeltaSharin
         elif key == "includeendstreamaction":
             temp_include_end_stream_action = value.lower() == "true"
 
-    if temp_include_end_stream_action and temp_response_format == ResponseFormat.PARQUET:
+    if (
+        temp_include_end_stream_action
+        and temp_response_format == ResponseFormat.PARQUET
+    ):
         capabilities.include_end_stream_action = False
         capabilities.response_format = ResponseFormat.PARQUET
     else:

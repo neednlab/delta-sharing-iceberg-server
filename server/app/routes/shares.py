@@ -468,7 +468,10 @@ async def list_tables(
 
     try:
         result = share_service.list_tables(
-            share_name=share, schema_name=schema, max_results=maxResults, page_token=pageToken
+            share_name=share,
+            schema_name=schema,
+            max_results=maxResults,
+            page_token=pageToken,
         )
 
         audit_logger.log(

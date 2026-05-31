@@ -47,21 +47,27 @@ class SqlQueryCollector:
         self.queries: List[str] = []
         self._attached = False
 
-    def _on_before_cursor_execute(self, conn, cursor, statement, parameters, context, executemany):
+    def _on_before_cursor_execute(
+        self, conn, cursor, statement, parameters, context, executemany
+    ):
         self.queries.append(str(statement).strip())
 
     def attach(self):
         """挂载事件监听器到当前引擎。"""
         if not self._attached:
             engine = get_database().get_engine()
-            event.listen(engine, "before_cursor_execute", self._on_before_cursor_execute)
+            event.listen(
+                engine, "before_cursor_execute", self._on_before_cursor_execute
+            )
             self._attached = True
 
     def detach(self):
         """卸载事件监听器。"""
         if self._attached:
             engine = get_database().get_engine()
-            event.remove(engine, "before_cursor_execute", self._on_before_cursor_execute)
+            event.remove(
+                engine, "before_cursor_execute", self._on_before_cursor_execute
+            )
             self._attached = False
 
     def reset(self):
@@ -208,7 +214,9 @@ def client_dp_seeded(seeded_db, sql_collector):
 class TestListSharesBaseline:
     """测试 GET /shares 路由的 SQL 查询次数基线。"""
 
-    def test_list_shares_route_sql_count_baseline(self, client_dp_seeded, sql_collector):
+    def test_list_shares_route_sql_count_baseline(
+        self, client_dp_seeded, sql_collector
+    ):
         """GET /delta-sharing/shares → 记录优化前 SQL 条数。"""
         sql_collector.reset()
 
@@ -220,13 +228,17 @@ class TestListSharesBaseline:
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
-        assert sql_count <= 4, f"Expected ≤4 SQL queries for list_shares, got {sql_count}"
+        assert sql_count <= 4, (
+            f"Expected ≤4 SQL queries for list_shares, got {sql_count}"
+        )
 
 
 class TestListSchemasBaseline:
     """测试 GET /shares/{s}/schemas 路由的 SQL 查询次数基线。"""
 
-    def test_list_schemas_route_sql_count_baseline(self, client_dp_seeded, sql_collector):
+    def test_list_schemas_route_sql_count_baseline(
+        self, client_dp_seeded, sql_collector
+    ):
         """GET /delta-sharing/shares/{s}/schemas → 记录优化前 SQL 条数。"""
         sql_collector.reset()
 
@@ -238,13 +250,17 @@ class TestListSchemasBaseline:
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
-        assert sql_count <= 4, f"Expected ≤4 SQL queries for list_schemas, got {sql_count}"
+        assert sql_count <= 4, (
+            f"Expected ≤4 SQL queries for list_schemas, got {sql_count}"
+        )
 
 
 class TestListTablesBaseline:
     """测试 GET /shares/{s}/schemas/{s}/tables 路由的 SQL 查询次数基线。"""
 
-    def test_list_tables_route_sql_count_baseline(self, client_dp_seeded, sql_collector):
+    def test_list_tables_route_sql_count_baseline(
+        self, client_dp_seeded, sql_collector
+    ):
         """GET /delta-sharing/shares/{s}/schemas/{s}/tables → 记录优化前 SQL 条数。"""
         sql_collector.reset()
 
@@ -258,7 +274,9 @@ class TestListTablesBaseline:
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
-        assert sql_count <= 6, f"Expected ≤6 SQL queries for list_tables, got {sql_count}"
+        assert sql_count <= 6, (
+            f"Expected ≤6 SQL queries for list_tables, got {sql_count}"
+        )
 
 
 class TestMetadataBaseline:
@@ -361,7 +379,9 @@ class TestQueryBaseline:
         ]
         pre_validation_count = len(pre_validation_queries)
 
-        print(f"\n[SQL COUNT] query: {sql_count} queries (pre-validation: {pre_validation_count})")
+        print(
+            f"\n[SQL COUNT] query: {sql_count} queries (pre-validation: {pre_validation_count})"
+        )
         for i, q in enumerate(sql_collector.queries):
             print(f"  [{i + 1}] {q[:120]}...")
 
@@ -411,7 +431,9 @@ class TestQueryRouteErrors:
         assert response.status_code == 404, (
             f"Expected 404 for missing schema, got {response.status_code}: {response.text}"
         )
-        assert sql_count <= 5, f"Expected ≤5 SQL queries for schema_not_found, got {sql_count}"
+        assert sql_count <= 5, (
+            f"Expected ≤5 SQL queries for schema_not_found, got {sql_count}"
+        )
 
     def test_query_route_table_not_found(self, client_dp_seeded, sql_collector):
         """POST .../query → table 不存在时返回 TABLE_NOT_FOUND。
@@ -443,4 +465,6 @@ class TestQueryRouteErrors:
         assert response.status_code == 404, (
             f"Expected 404 for missing table, got {response.status_code}: {response.text}"
         )
-        assert sql_count <= 5, f"Expected ≤5 SQL queries for table_not_found, got {sql_count}"
+        assert sql_count <= 5, (
+            f"Expected ≤5 SQL queries for table_not_found, got {sql_count}"
+        )

@@ -297,8 +297,12 @@ class TestFilterFilesByPartitionPruning:
             {"path": "f1.parquet", "partition_values": {"month_id": "202604"}},
             {"path": "f2.parquet", "partition_values": {"month_id": "202605"}},
         ]
-        predicate_hints = [{"raw_expression": "(CAST(partitionValues.month_id AS INT) = 202604)"}]
-        result = ps.filter_files_by_partition_pruning(files, None, predicate_hints, ["month_id"])
+        predicate_hints = [
+            {"raw_expression": "(CAST(partitionValues.month_id AS INT) = 202604)"}
+        ]
+        result = ps.filter_files_by_partition_pruning(
+            files, None, predicate_hints, ["month_id"]
+        )
         assert len(result) == 2
 
 
@@ -366,17 +370,29 @@ class TestFilterFiles:
             {
                 "path": "f1.parquet",
                 "partition_values": {"dt": "2026-01-01"},
-                "stats": {"minValues": {"id": 1}, "maxValues": {"id": 50}, "nullCount": {}},
+                "stats": {
+                    "minValues": {"id": 1},
+                    "maxValues": {"id": 50},
+                    "nullCount": {},
+                },
             },
             {
                 "path": "f2.parquet",
                 "partition_values": {"dt": "2026-01-01"},
-                "stats": {"minValues": {"id": 51}, "maxValues": {"id": 100}, "nullCount": {}},
+                "stats": {
+                    "minValues": {"id": 51},
+                    "maxValues": {"id": 100},
+                    "nullCount": {},
+                },
             },
             {
                 "path": "f3.parquet",
                 "partition_values": {"dt": "2026-01-02"},
-                "stats": {"minValues": {"id": 1}, "maxValues": {"id": 100}, "nullCount": {}},
+                "stats": {
+                    "minValues": {"id": 1},
+                    "maxValues": {"id": 100},
+                    "nullCount": {},
+                },
             },
         ]
         json_pred = {

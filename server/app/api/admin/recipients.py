@@ -64,7 +64,9 @@ async def create_recipient(
         logger.exception(f"Unexpected error creating recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_CREATE_RECIPIENT",
             request=request,
             category="admin",
@@ -95,7 +97,9 @@ async def list_recipients(
         logger.exception("Unexpected error listing recipients")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_LIST_RECIPIENTS",
             request=request,
             category="admin",
@@ -132,7 +136,9 @@ async def get_recipient(
         logger.exception(f"Unexpected error getting recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_GET_RECIPIENT",
             request=request,
             category="admin",
@@ -176,7 +182,9 @@ async def update_recipient(
         logger.exception(f"Unexpected error updating recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_UPDATE_RECIPIENT",
             request=request,
             category="admin",
@@ -214,7 +222,9 @@ async def delete_recipient(
         logger.exception(f"Unexpected error deleting recipient '{name}'")
         raise_audited_error(
             audit_logger,
-            DeltaSharingError(ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500),
+            DeltaSharingError(
+                ErrorCode.INTERNAL_ERROR, "Internal server error", status_code=500
+            ),
             "ADMIN_DELETE_RECIPIENT",
             request=request,
             category="admin",
