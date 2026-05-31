@@ -36,8 +36,10 @@ from sqlalchemy import (
     UniqueConstraint,
     ForeignKeyConstraint,
     create_engine,
+    event,
     text,
 )
+from sqlalchemy.pool import NullPool, QueuePool
 from loguru import logger
 
 from app.core.config import get_config
@@ -229,10 +231,12 @@ class Database:
     def initialize(self, db_url: Optional[str] = None) -> None:
         """初始化数据库引擎并创建表结构。
 
-        使用 create_engine(url) 创建 Engine，对 SQLite 自动传入
-        connect_args={"check_same_thread": False}。
-        SQLite 数据库启用 WAL 模式以提升并发读取性能，避免读-写互斥导致的
-        "database is locked" 错误（在高并发场景下可能导致 token 验证失败返回 401）。
+        使用 create_engine(url, **kwargs) 创建 Engine。
+        对 SQLite 自动传入 connect_args={"check_same_thread": False}。
+        SQLite 数据库默认使用 NullPool 连接池策略（适合读密集型场景），
+        可通过 database.pool.pool_type 切换为 QueuePool。
+        PostgreSQL 数据库始终使用 QueuePool。
+        SQLite 数据库额外应用 WAL 模式和读性能 PRAGMA 优化。
         初始化后自动执行数据库迁移（如删除废弃的 profile 列）。
 
         Args:
@@ -243,7 +247,6 @@ class Database:
             db_url = config.database.url
 
         connect_args = {}
-        # 标记是否使用 SQLite，用于后续 WAL 模式配置
         _is_sqlite = db_url.startswith("sqlite")
         if _is_sqlite:
             connect_args["check_same_thread"] = False
@@ -252,32 +255,148 @@ class Database:
             if db_dir:
                 os.makedirs(db_dir, exist_ok=True)
 
-        self._engine = create_engine(db_url, connect_args=connect_args, echo=False)
+        pool_config = get_config().database.pool
+        engine_kwargs = self._build_engine_kwargs(
+            is_sqlite=_is_sqlite,
+            pool_config=pool_config,
+        )
+
+        self._engine = create_engine(
+            db_url,
+            connect_args=connect_args,
+            echo=False,
+            **engine_kwargs,
+        )
         self._metadata.create_all(self._engine, checkfirst=True)
         logger.info(f"数据库引擎已初始化: {db_url}")
 
-        # SQLite WAL 模式：提升并发读写性能，避免 "database is locked" 错误
         if _is_sqlite:
-            self._enable_wal_mode()
+            self._apply_sqlite_pragmas()
 
-    def _enable_wal_mode(self) -> None:
-        """为 SQLite 数据库启用 WAL（Write-Ahead Logging）模式。
+        self._log_pool_config(is_sqlite=_is_sqlite, pool_config=pool_config)
 
-        WAL 模式下读操作不会被写操作阻塞，写操作也不会被读操作阻塞，
-        显著提升高并发场景下的数据库访问稳定性。
-        journal_mode 设置为 WAL 后持久生效（写入数据库文件头部），
-        后续所有连接均自动使用 WAL 模式。
+    def _build_engine_kwargs(self, is_sqlite: bool, pool_config) -> dict:
+        """构建 create_engine() 的连接池关键字参数。
+
+        对 SQLite 数据库根据 pool_type 选择 NullPool 或 QueuePool，
+        PostgreSQL 数据库始终使用 QueuePool 并忽略 pool_type 配置。
+
+        NullPool 仅支持 pool_recycle 和 pool_pre_ping，
+        不支持 pool_size、max_overflow、pool_timeout（这些仅 QueuePool 有效）。
+
+        Args:
+            is_sqlite: 是否为 SQLite 数据库。
+            pool_config: PoolConfig 配置实例。
+
+        Returns:
+            包含 poolclass, pool_size, max_overflow, pool_recycle,
+            pool_timeout, pool_pre_ping 的参数字典。
+        """
+        kwargs = {}
+
+        if is_sqlite:
+            if pool_config.pool_type == "queue_pool":
+                kwargs["poolclass"] = QueuePool
+                kwargs["pool_size"] = pool_config.pool_size
+                kwargs["max_overflow"] = pool_config.max_overflow
+                kwargs["pool_timeout"] = pool_config.pool_timeout
+            else:
+                kwargs["poolclass"] = NullPool
+        else:
+            kwargs["poolclass"] = QueuePool
+            kwargs["pool_size"] = pool_config.pool_size
+            kwargs["max_overflow"] = pool_config.max_overflow
+            kwargs["pool_timeout"] = pool_config.pool_timeout
+
+        kwargs["pool_recycle"] = pool_config.pool_recycle
+        kwargs["pool_pre_ping"] = pool_config.pool_pre_ping
+
+        return kwargs
+
+    def _apply_sqlite_pragmas(self) -> None:
+        """为 SQLite 数据库启用 WAL 模式并注册连接级 PRAGMA 优化。
+
+        WAL 模式（journal_mode=WAL）和 wal_autocheckpoint 是持久设置，
+        写入数据库文件头部，所有后续连接自动继承，只需执行一次。
+
+        连接级 PRAGMA（cache_size、mmap_size、temp_store、synchronous、
+        foreign_keys）通过 SQLAlchemy `connect` 事件注册，确保
+        每个新连接（包括 NullPool 模式下的每次 connect()）都自动应用。
+
+        mmap_size 设置失败时（如 32 位系统）记录警告日志并回退，不阻止启动。
         """
         if self._engine is None:
             return
+
+        # 持久化 PRAGMA：仅需执行一次，写入数据库文件头部
         with self._engine.connect() as conn:
-            # 执行 PRAGMA 启用 WAL 模式（持久生效，仅需执行一次）
             conn.execute(text("PRAGMA journal_mode=WAL"))
-            # 自动 WAL checkpoint 阈值设为 1000 页（约 4MB），
-            # 避免 WAL 文件无限增长
             conn.execute(text("PRAGMA wal_autocheckpoint=1000"))
             conn.commit()
-            logger.info("SQLite WAL 模式已启用 (journal_mode=WAL, wal_autocheckpoint=1000)")
+
+        # 注册连接事件：每个新连接自动应用连接级 PRAGMA
+        self._register_sqlite_connect_events()
+
+        logger.info(
+            "SQLite PRAGMA 优化已应用: journal_mode=WAL, "
+            "wal_autocheckpoint=1000, cache_size=-20000, "
+            "mmap_size=268435456, temp_store=MEMORY, "
+            "synchronous=NORMAL, foreign_keys=ON"
+        )
+
+    def _register_sqlite_connect_events(self) -> None:
+        """注册 SQLAlchemy `connect` 事件，为每个新连接应用连接级 PRAGMA。
+
+        NullPool 模式下每次 connect() 创建新连接，必须通过事件机制
+        确保每个连接都获得正确的 PRAGMA 设置。QueuePool 模式下同样适用。
+        """
+        engine = self._engine
+        if engine is None:
+            return
+
+        @event.listens_for(engine, "connect")
+        def _on_connect(dbapi_connection, connection_record):
+            """新连接建立时设置连接级 PRAGMA 优化参数。
+
+            这些 PRAGMA 仅影响当前连接，不会持久化到数据库文件。
+            mmap_size 失败时仅记录警告，不影响连接建立。
+            """
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA cache_size=-20000")
+            cursor.execute("PRAGMA temp_store=2")
+            cursor.execute("PRAGMA synchronous=1")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            try:
+                cursor.execute("PRAGMA mmap_size=268435456")
+            except Exception as e:
+                logger.warning(
+                    f"mmap_size 设置失败（可能是 32 位系统或文件系统不支持 mmap），"
+                    f"已跳过当前连接的 mmap 优化: {e}"
+                )
+            cursor.close()
+
+    def _log_pool_config(self, is_sqlite: bool, pool_config) -> None:
+        """输出连接池配置摘要日志。
+
+        Args:
+            is_sqlite: 是否为 SQLite 数据库。
+            pool_config: PoolConfig 配置实例。
+        """
+        pool_type = pool_config.pool_type if is_sqlite else "queue_pool"
+        if pool_type == "null_pool" or (is_sqlite and pool_config.pool_type == "null_pool"):
+            pool_desc = "pool_type=NullPool (SQLite 读密集型优化)"
+        else:
+            pool_desc = (
+                f"pool_type=QueuePool, pool_size={pool_config.pool_size}, "
+                f"max_overflow={pool_config.max_overflow}"
+            )
+
+        logger.info(
+            f"连接池配置: {pool_desc}, "
+            f"pool_recycle={pool_config.pool_recycle}s, "
+            f"pool_timeout={pool_config.pool_timeout}s, "
+            f"pool_pre_ping={pool_config.pool_pre_ping}"
+        )
 
     def get_engine(self) -> Engine:
         """获取 SQLAlchemy Engine 实例。

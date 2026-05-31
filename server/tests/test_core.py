@@ -2,6 +2,7 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 
+from sqlalchemy import text as sa_text
 from app.core.config import (
     Config,
 )
@@ -1002,6 +1003,222 @@ class TestIcebergSchemaConverter:
         assert field_b["type"]["fields"][0]["name"] == "d"
         assert field_b["type"]["fields"][0]["type"] == "integer"
         assert field_b["type"]["fields"][0]["nullable"] is False
+
+
+class TestPoolConfig:
+    """PoolConfig 连接池配置相关单元测试
+
+    覆盖 PoolConfig 默认值、配置校验、from_dict 解析和数据库初始化验证。
+    """
+
+    def test_pool_config_defaults(self):
+        """PoolConfig 应有合理的默认值。"""
+        from app.core.config import PoolConfig
+
+        pc = PoolConfig()
+        assert pc.pool_type == "null_pool"
+        assert pc.pool_size == 10
+        assert pc.max_overflow == 20
+        assert pc.pool_recycle == 3600
+        assert pc.pool_timeout == 10
+        assert pc.pool_pre_ping is True
+
+    def test_config_from_dict_with_pool(self):
+        """Config.from_dict 应正确解析嵌套的 pool 配置。"""
+        data = {
+            "database": {
+                "url": "sqlite:///test.db",
+                "pool": {
+                    "pool_type": "queue_pool",
+                    "pool_size": 20,
+                    "max_overflow": 30,
+                    "pool_recycle": 1800,
+                    "pool_timeout": 15,
+                    "pool_pre_ping": False,
+                },
+            }
+        }
+        config = Config.from_dict(data)
+        assert config.database.url == "sqlite:///test.db"
+        assert config.database.pool.pool_type == "queue_pool"
+        assert config.database.pool.pool_size == 20
+        assert config.database.pool.max_overflow == 30
+        assert config.database.pool.pool_recycle == 1800
+        assert config.database.pool.pool_timeout == 15
+        assert config.database.pool.pool_pre_ping is False
+
+    def test_config_from_dict_pool_partial(self):
+        """Config.from_dict 应正确处理部分 pool 配置，缺失字段使用默认值。"""
+        data = {
+            "database": {
+                "url": "sqlite:///test.db",
+                "pool": {
+                    "pool_type": "queue_pool",
+                    "pool_size": 50,
+                },
+            }
+        }
+        config = Config.from_dict(data)
+        assert config.database.pool.pool_type == "queue_pool"
+        assert config.database.pool.pool_size == 50
+        # 未配置的字段应保持默认值
+        assert config.database.pool.max_overflow == 20
+        assert config.database.pool.pool_recycle == 3600
+        assert config.database.pool.pool_timeout == 10
+        assert config.database.pool.pool_pre_ping is True
+
+    def test_validate_pool_config_invalid_pool_type(self):
+        """非法 pool_type 应在校验时抛出 DeltaSharingError。"""
+        from app.core.config import _validate_pool_config
+
+        config = Config()
+        config.database.pool.pool_type = "invalid_pool"
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "Invalid pool_type" in str(exc_info.value)
+
+    def test_validate_pool_config_pool_size_out_of_range(self):
+        """pool_size 超出范围应在校验时抛出 DeltaSharingError。"""
+        from app.core.config import _validate_pool_config
+
+        config = Config()
+        config.database.pool.pool_size = 0
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "pool_size" in str(exc_info.value)
+
+        config.database.pool.pool_size = 101
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "pool_size" in str(exc_info.value)
+
+    def test_validate_pool_config_max_overflow_out_of_range(self):
+        """max_overflow 超出范围应在校验时抛出 DeltaSharingError。"""
+        from app.core.config import _validate_pool_config
+
+        config = Config()
+        config.database.pool.max_overflow = -1
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "max_overflow" in str(exc_info.value)
+
+        config.database.pool.max_overflow = 201
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "max_overflow" in str(exc_info.value)
+
+    def test_validate_pool_config_pool_timeout_out_of_range(self):
+        """pool_timeout 超出范围应在校验时抛出 DeltaSharingError。"""
+        from app.core.config import _validate_pool_config
+
+        config = Config()
+        config.database.pool.pool_timeout = 0
+        with pytest.raises(DeltaSharingError) as exc_info:
+            _validate_pool_config(config)
+        assert "pool_timeout" in str(exc_info.value)
+
+    def test_sqlite_null_pool_default(self):
+        """SQLite 数据库默认应使用 NullPool。"""
+        import tempfile
+        import os
+        from sqlalchemy.pool import NullPool
+        from app.core.database import init_database
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            test_db_path = f.name
+
+        try:
+            db = init_database(f"sqlite:///{test_db_path}")
+            engine = db.get_engine()
+            pool = engine.pool
+            assert isinstance(pool, NullPool), (
+                f"SQLite 默认应使用 NullPool，实际: {type(pool).__name__}"
+            )
+        finally:
+            db.close()
+            if os.path.exists(test_db_path):
+                os.unlink(test_db_path)
+
+    def test_sqlite_queue_pool_explicit(self):
+        """SQLite 显式配置 queue_pool 时应使用 QueuePool。"""
+        import tempfile
+        import os
+        from sqlalchemy.pool import QueuePool
+        from app.core.database import Database
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            test_db_path = f.name
+
+        try:
+            # 使用 MonkeyPatch 设置 pool_type 为 queue_pool
+            db = Database()
+            with patch.object(
+                Database, "_build_engine_kwargs",
+                return_value={
+                    "poolclass": QueuePool,
+                    "pool_size": 10,
+                    "max_overflow": 20,
+                    "pool_recycle": 3600,
+                    "pool_timeout": 10,
+                    "pool_pre_ping": True,
+                },
+            ):
+                db.initialize(f"sqlite:///{test_db_path}")
+                engine = db.get_engine()
+                pool = engine.pool
+                assert isinstance(pool, QueuePool), (
+                    f"显式 queue_pool 配置应使用 QueuePool，实际: {type(pool).__name__}"
+                )
+        finally:
+            db.close()
+            if os.path.exists(test_db_path):
+                os.unlink(test_db_path)
+
+    def test_sqlite_pragmas_applied(self):
+        """SQLite 初始化后 PRAGMA 优化应已应用。"""
+        import tempfile
+        import os
+        from app.core.database import init_database
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            test_db_path = f.name
+
+        try:
+            db = init_database(f"sqlite:///{test_db_path}")
+            engine = db.get_engine()
+            with engine.connect() as conn:
+                result = conn.execute(sa_text("PRAGMA journal_mode"))
+                assert result.fetchone()[0].upper() == "WAL", "WAL 模式应已启用"
+
+                result = conn.execute(sa_text("PRAGMA cache_size"))
+                assert result.fetchone()[0] == -20000, "cache_size 应为 -20000"
+
+                result = conn.execute(sa_text("PRAGMA temp_store"))
+                assert result.fetchone()[0] == 2, "temp_store 应为 2 (MEMORY)"
+
+                result = conn.execute(sa_text("PRAGMA synchronous"))
+                assert result.fetchone()[0] == 1, "synchronous 应为 1 (NORMAL)"
+
+                result = conn.execute(sa_text("PRAGMA foreign_keys"))
+                assert result.fetchone()[0] == 1, "foreign_keys 应为 ON"
+        finally:
+            db.close()
+            if os.path.exists(test_db_path):
+                os.unlink(test_db_path)
+
+    def test_postgresql_ignores_pool_type(self):
+        """PostgreSQL 数据库应忽略 pool_type 配置，始终使用 QueuePool。"""
+        from app.core.database import Database
+
+        db = Database()
+        from app.core.config import PoolConfig
+
+        pc = PoolConfig()
+        pc.pool_type = "null_pool"
+        kwargs = db._build_engine_kwargs(is_sqlite=False, pool_config=pc)
+        assert kwargs["poolclass"].__name__ == "QueuePool", (
+            "PostgreSQL 应始终使用 QueuePool"
+        )
 
 
 if __name__ == "__main__":

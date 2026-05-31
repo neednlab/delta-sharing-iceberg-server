@@ -54,6 +54,31 @@ class COSConfig:
     endpoint: str = ""
 
 
+class PoolConfig:
+    """连接池配置类
+
+    配置 SQLAlchemy Engine 的连接池行为。
+    NullPool 适用于 SQLite 读密集型场景（连接创建开销极低），
+    QueuePool 适用于 PostgreSQL 等远端数据库场景。
+
+    Attributes:
+        pool_type: 连接池类型，"null_pool" 或 "queue_pool"。
+            SQLite 默认为 "null_pool"，PostgreSQL 忽略此配置始终使用 QueuePool。
+        pool_size: QueuePool 模式下持久连接数，默认 10。
+        max_overflow: QueuePool 模式下额外临时连接上限，默认 20。
+        pool_recycle: 连接回收时间（秒），-1 表示不回收，默认 3600。
+        pool_timeout: 获取连接超时时间（秒），默认 10。
+        pool_pre_ping: 连接前是否执行健康检查（SELECT 1），默认 True。
+    """
+
+    pool_type: str = "null_pool"
+    pool_size: int = 10
+    max_overflow: int = 20
+    pool_recycle: int = 3600
+    pool_timeout: int = 10
+    pool_pre_ping: bool = True
+
+
 class DatabaseConfig:
     """数据库配置类
 
@@ -62,9 +87,13 @@ class DatabaseConfig:
 
     Attributes:
         url: SQLAlchemy 数据库连接 URL，默认为 "sqlite:///./data/server.db"。
+        pool: 连接池配置，默认为 PoolConfig 默认值。
     """
 
     url: str = "sqlite:///./data/server.db"
+
+    def __init__(self):
+        self.pool = PoolConfig()
 
 
 class TokenConfig:
@@ -263,8 +292,14 @@ class Config:
         for section_name, attr_name in _CONFIG_SECTION_MAP.items():
             if section_name in data:
                 section_obj = getattr(config, attr_name)
-                for key, value in data[section_name].items():
-                    setattr(section_obj, key, value)
+                section_data = data[section_name]
+                for key, value in section_data.items():
+                    # 处理嵌套的 pool 配置子节
+                    if key == "pool" and isinstance(value, dict):
+                        for pool_key, pool_value in value.items():
+                            setattr(section_obj.pool, pool_key, pool_value)
+                    else:
+                        setattr(section_obj, key, value)
 
         if "shares" in data:
             if isinstance(data["shares"], dict):
@@ -919,6 +954,55 @@ def _validate_database_url(config: Config) -> None:
     logger.info(f"数据库 URL 配置有效: {db_url}")
 
 
+def _validate_pool_config(config: Config) -> None:
+    """校验连接池配置参数合法性。
+
+    pool_type 仅接受 "null_pool" 或 "queue_pool"，
+    各数值参数需在合法范围内。
+
+    Args:
+        config: 全局配置对象。
+
+    Raises:
+        DeltaSharingError: 当连接池配置非法时抛出。
+    """
+    pool = config.database.pool
+    valid_pool_types = ("null_pool", "queue_pool")
+    if pool.pool_type not in valid_pool_types:
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"Invalid pool_type: '{pool.pool_type}'. "
+            f"Must be one of: {', '.join(valid_pool_types)}",
+        )
+    if not (1 <= pool.pool_size <= 100):
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"pool_size must be between 1 and 100, got {pool.pool_size}",
+        )
+    if not (0 <= pool.max_overflow <= 200):
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"max_overflow must be between 0 and 200, got {pool.max_overflow}",
+        )
+    if pool.pool_recycle != -1 and not (1 <= pool.pool_recycle <= 86400):
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"pool_recycle must be -1 or between 1 and 86400, got {pool.pool_recycle}",
+        )
+    if not (1 <= pool.pool_timeout <= 60):
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"pool_timeout must be between 1 and 60, got {pool.pool_timeout}",
+        )
+
+    logger.info(
+        f"连接池配置有效: pool_type={pool.pool_type}, "
+        f"pool_size={pool.pool_size}, max_overflow={pool.max_overflow}, "
+        f"pool_recycle={pool.pool_recycle}s, pool_timeout={pool.pool_timeout}s, "
+        f"pool_pre_ping={pool.pool_pre_ping}"
+    )
+
+
 def _validate_page_token_secret(config: Config) -> None:
     """校验 PAGE_TOKEN_SECRET 配置。
 
@@ -955,5 +1039,6 @@ def _validate_all_config(config: Config) -> None:
     _validate_cos_credentials(config)
     _validate_dlc_credentials(config)
     _validate_database_url(config)
+    _validate_pool_config(config)
     _validate_cos_path_format(config)
     _validate_page_token_secret(config)
