@@ -112,12 +112,17 @@ _manifest_list_cache = RequestCacheManager("manifest_list_cache")
 # 缓存键: "{bucket}/{key}"  →  缓存值: List[Dict[str, Any]]（解析后的 manifest 条目列表）
 _manifest_cache = RequestCacheManager("manifest_cache")
 
+# 请求级 snapshot 同步标记缓存
+# 缓存键: "share.schema.table"  →  缓存值: True（标记该表在当前请求内已完成同步）
+_sync_flag_cache = RequestCacheManager("sync_flag_cache")
+
 # 所有请求级缓存管理器列表，供 CacheMiddleware 管理和清理
 _request_cache_managers: List[RequestCacheManager] = [
     _metadata_location_cache,
     _metadata_content_cache,
     _manifest_list_cache,
     _manifest_cache,
+    _sync_flag_cache,
 ]
 
 
