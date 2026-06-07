@@ -90,6 +90,8 @@ class ShareService:
         else:
             share_names = sorted(all_shares.keys())
 
+        # 保存原始总数，用于分页 token 计算（后续切片会改变 share_names 长度）
+        total_shares = len(share_names)
         offset = 0
         if page_token:
             decoded_offset = _decode_page_token(page_token)
@@ -98,11 +100,11 @@ class ShareService:
                 share_names = share_names[offset:]
 
         if max_results and max_results > 0:
-            shares_subset = share_names[offset : offset + max_results]
+            shares_subset = share_names[:max_results]
             next_offset = offset + len(shares_subset)
-            next_token = _encode_page_token(next_offset) if next_offset < len(share_names) else None
+            next_token = _encode_page_token(next_offset) if next_offset < total_shares else None
         else:
-            shares_subset = share_names[offset:]
+            shares_subset = share_names
             next_token = None
 
         items = []

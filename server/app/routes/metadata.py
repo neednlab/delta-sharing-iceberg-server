@@ -22,7 +22,7 @@ from app.core.delta_capabilities import (
     parse_delta_sharing_capabilities,
     EndStreamAction,
 )
-from app.services.iceberg_service import IcebergService
+from app.services.iceberg_service import get_iceberg_service
 from app.services.share_service import ShareService
 from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.services.version_service import VersionService
@@ -34,7 +34,6 @@ from app.utils.request_utils import get_client_ip
 
 router = APIRouter(prefix="", tags=["metadata"])
 
-iceberg_service = IcebergService()
 share_service = ShareService()
 auth_repo = RecipientShareRepository()
 version_service = VersionService()
@@ -151,7 +150,7 @@ async def get_table_metadata(
         )
 
     try:
-        snapshot = iceberg_service.get_current_snapshot(share, schema, table)
+        snapshot = get_iceberg_service().get_current_snapshot(share, schema, table)
         if snapshot is None:
             raise_audited_error(
                 audit_logger,
@@ -174,7 +173,7 @@ async def get_table_metadata(
             share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
         )
 
-        metadata = iceberg_service.get_table_metadata(
+        metadata = get_iceberg_service().get_table_metadata(
             share, schema, table, table_config=table_config, snapshot=snapshot
         )
 

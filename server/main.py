@@ -35,7 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.types import ASGIApp, Scope, Receive, Send, Message
 
-from app.core.config import load_config, get_config
+from app.core.config import load_config, get_config, validate_cos_path_format_in_database
 from app.core.database import init_database, get_database
 from app.core.cos_client import init_cos_client
 from app.core.audit import request_id_ctx, get_audit_logger
@@ -426,6 +426,11 @@ def main():
 
     # 3. 初始化数据库（共享连接池）
     init_database()
+
+    # 3.1. 数据库模式下校验库内表的 location 格式（须在 DB 初始化后执行）
+    config = get_config()
+    if config.shares.use_database:
+        validate_cos_path_format_in_database()
 
     # 4. 初始化 COS 客户端（共享）
     init_cos_client()

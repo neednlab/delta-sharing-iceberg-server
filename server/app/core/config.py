@@ -839,7 +839,9 @@ def _get_all_tables_from_config(share_name: str) -> Dict[str, Dict[str, TableCon
 def _validate_cos_path_format(config: Config) -> None:
     """校验所有表的 location 格式。
 
-    location 必须为 cosn://bucket/key 格式，否则拒绝启动。
+    校验配置文件中的表 location，location 必须为 cosn://bucket/key 格式，
+    否则拒绝启动。数据库模式的表校验由 validate_cos_path_format_in_database()
+    在数据库初始化后单独调用。
 
     Args:
         config: 全局配置对象。
@@ -848,7 +850,6 @@ def _validate_cos_path_format(config: Config) -> None:
         DeltaSharingError: 当 location 格式无效时抛出。
     """
     shares_data = config.shares
-
     shares_dict = _unwrap_shares_dict(shares_data)
     if shares_dict is None:
         return
@@ -874,6 +875,44 @@ def _validate_cos_path_format(config: Config) -> None:
                         f"表 '{share_key}.{schema_key}.{table_key}' 的 location 格式无效: "
                         f"'{location}'。location 必须为 cosn://bucket/key 格式。",
                     )
+
+
+def validate_cos_path_format_in_database() -> None:
+    """校验数据库中所有表的 location 格式。
+
+    遍历所有 share → schema → table 记录，检查 location 是否为
+    cosn://bucket/key 格式。任意表格式无效即抛出 DeltaSharingError
+    并拒绝启动。
+
+    此函数必须在 init_database() 之后调用，因为它需要查询数据库。
+    由 main() 在数据库初始化后显式调用。
+
+    Raises:
+        DeltaSharingError: 当数据库中任意表的 location 格式无效时抛出。
+    """
+    from app.repositories.share_repository import ShareRepository
+
+    repo = ShareRepository()
+    all_shares = repo.list_shares()
+
+    invalid_tables = []
+    for share in all_shares:
+        share_name = share["share_name"]
+        all_tables = repo.get_all_tables_for_share(share_name)
+        for schema_name, tables in all_tables.items():
+            for table_name, table_data in tables.items():
+                location = (table_data.get("location") or "").strip()
+                if location and not location.startswith("cosn://"):
+                    invalid_tables.append(f"{share_name}.{schema_name}.{table_name}: '{location}'")
+
+    if invalid_tables:
+        raise DeltaSharingError(
+            ErrorCode.INVALID_PARAMETER_VALUE,
+            f"数据库中存在 {len(invalid_tables)} 个表的 location 格式无效"
+            f"（必须为 cosn://bucket/key 格式）: "
+            + "; ".join(invalid_tables[:10])
+            + ("..." if len(invalid_tables) > 10 else ""),
+        )
 
 
 def _validate_cos_credentials(config: Config) -> None:
