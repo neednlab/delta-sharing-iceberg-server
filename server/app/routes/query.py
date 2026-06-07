@@ -24,7 +24,7 @@ from app.utils.request_utils import get_client_ip
 from app.utils.audit_utils import raise_audited_error, QueryAuditContext
 from app.utils.response_utils import generate_ndjson_response
 from app.utils.time_utils import parse_iso8601_timestamp
-from app.services.iceberg_service import IcebergService
+from app.services.iceberg_service import get_iceberg_service
 from app.services.share_service import ShareService
 from app.repositories.recipient_share_repository import RecipientShareRepository
 from app.services.version_service import VersionService
@@ -35,7 +35,6 @@ from app.core.authentication import get_current_recipient
 
 router = APIRouter(prefix="", tags=["query"])
 
-iceberg_service = IcebergService()
 share_service = ShareService()
 auth_repo = RecipientShareRepository()
 version_service = VersionService()
@@ -186,7 +185,7 @@ async def query_table(
                     recipient_id=recipient_id,
                 )
 
-            snapshot = iceberg_service.get_snapshot_by_id(
+            snapshot = get_iceberg_service().get_snapshot_by_id(
                 share, schema, table, snapshot_info["snapshot_id"]
             )
             if snapshot is None:
@@ -253,7 +252,7 @@ async def query_table(
                     recipient_id=recipient_id,
                 )
 
-            snapshot = iceberg_service.get_snapshot_by_id(
+            snapshot = get_iceberg_service().get_snapshot_by_id(
                 share, schema, table, snapshot_info["snapshot_id"]
             )
             if snapshot is None:
@@ -277,7 +276,7 @@ async def query_table(
 
         else:
             # 默认：使用当前最新快照
-            snapshot = iceberg_service.get_current_snapshot(
+            snapshot = get_iceberg_service().get_current_snapshot(
                 share, schema, table, table_config=table_config
             )
             if snapshot is None:
@@ -320,7 +319,7 @@ async def query_table(
             share, schema, table, snapshot_id, int(snapshot.get("timestamp-ms", 0))
         )
 
-        data_files, has_delete_files = iceberg_service.get_data_files(
+        data_files, has_delete_files = get_iceberg_service().get_data_files(
             share, schema, table, snapshot_id, table_config=table_config
         )
 
@@ -343,7 +342,7 @@ async def query_table(
                 iceberg_snapshot_id=snapshot_id,
                 recipient_id=recipient_id,
             )
-        partition_columns = iceberg_service.get_partition_columns(
+        partition_columns = get_iceberg_service().get_partition_columns(
             share, schema, table, table_config=table_config
         )
 
@@ -392,7 +391,7 @@ async def query_table(
         if limitHint and len(filtered_files) > limitHint:
             filtered_files = filtered_files[:limitHint]
 
-        file_objects = iceberg_service.build_file_objects(
+        file_objects = get_iceberg_service().build_file_objects(
             filtered_files,
             table_config,
             snapshot,
@@ -400,7 +399,7 @@ async def query_table(
             query_version=query_display_version,
         )
 
-        metadata_response = iceberg_service.get_table_metadata(
+        metadata_response = get_iceberg_service().get_table_metadata(
             share,
             schema,
             table,

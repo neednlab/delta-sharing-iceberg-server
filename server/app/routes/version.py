@@ -13,7 +13,7 @@ from typing import Optional
 
 from app.core.errors import DeltaSharingError, ErrorCode
 from app.core.audit import get_audit_logger
-from app.services.iceberg_service import IcebergService
+from app.services.iceberg_service import get_iceberg_service
 from app.services.share_service import ShareService
 from app.services.version_service import VersionService
 from app.repositories.recipient_share_repository import RecipientShareRepository
@@ -25,7 +25,6 @@ from app.utils.time_utils import parse_iso8601_timestamp
 
 router = APIRouter(prefix="", tags=["version"])
 
-iceberg_service = IcebergService()
 share_service = ShareService()
 version_service = VersionService()
 auth_repo = RecipientShareRepository()
@@ -177,7 +176,7 @@ async def get_table_version(
         snapshot_id = snapshot_info["snapshot_id"]
         version = snapshot_info["version"]
     else:
-        snapshot = iceberg_service.get_current_snapshot(share, schema, table)
+        snapshot = get_iceberg_service().get_current_snapshot(share, schema, table)
         if snapshot is None:
             raise_audited_error(
                 audit_logger,

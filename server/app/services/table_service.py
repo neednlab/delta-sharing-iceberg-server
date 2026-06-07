@@ -31,13 +31,18 @@ class TableService:
         Returns:
             包含 location、bucket、region 的字典，如果表不存在则返回 None。
         """
-        from app.services.iceberg_service import IcebergService
+        from app.core.config import get_table_config
 
         config = get_table_config(share_name, schema_name, table_name)
         if config:
             location = getattr(config, "cos_path", None) or config.location
-            iceberg_service = IcebergService()
-            bucket, _ = iceberg_service._parse_cos_path(location)
+            # 内联 COS 路径解析（cosn://bucket/key → bucket），
+            # 避免引入 IcebergService 重量级依赖（其 __init__ 会初始化 DLC/COS/DB）
+            bucket = ""
+            if location and location.startswith("cosn://"):
+                path_part = location[len("cosn://") :]
+                parts = path_part.split("/", 1)
+                bucket = parts[0]
             return {
                 "location": location,
                 "bucket": bucket,

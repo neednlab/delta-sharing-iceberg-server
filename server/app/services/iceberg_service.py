@@ -1627,3 +1627,24 @@ class IcebergService:
                 "region": self.config.cos.region,
             }
         return None
+
+
+# 模块级 IcebergService 懒加载单例
+# 避免在模块 import 时即触发 config/COS/DLC/DB 等外部依赖初始化，
+# 首次实际使用时才创建实例，与 authentication.py 中 _get_auth_service() 模式一致
+_iceberg_service: Optional[IcebergService] = None
+
+
+def get_iceberg_service() -> IcebergService:
+    """获取 IcebergService 模块级懒加载单例。
+
+    首次调用时创建实例并初始化 config/COS/DLC/DB 等依赖，
+    后续调用复用同一实例。
+
+    Returns:
+        IcebergService 单例实例。
+    """
+    global _iceberg_service
+    if _iceberg_service is None:
+        _iceberg_service = IcebergService()
+    return _iceberg_service
