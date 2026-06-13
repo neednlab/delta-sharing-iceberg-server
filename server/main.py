@@ -36,6 +36,7 @@ from loguru import logger
 from starlette.types import ASGIApp, Scope, Receive, Send, Message
 
 from app.core.config import load_config, get_config, validate_cos_path_format_in_database
+from app.core.dlc_client import init_dlc_client
 from app.core.database import init_database, get_database
 from app.core.cos_client import init_cos_client
 from app.core.audit import request_id_ctx, get_audit_logger
@@ -434,6 +435,10 @@ def main():
 
     # 4. 初始化 COS 客户端（共享）
     init_cos_client()
+
+    # 4.1 初始化 DLC 客户端（共享）—— 确保 Admin API 可以直接使用 DLC 客户端
+    if config.dlc.secret_id and config.dlc.secret_key:
+        init_dlc_client(config.dlc)
 
     # 5. 创建两个独立的应用实例
     data_plane_app = create_data_plane_app()
