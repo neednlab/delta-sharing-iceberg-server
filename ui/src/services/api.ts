@@ -24,6 +24,9 @@ import type {
   AuditLogQueryParams,
   AppConfig,
   ShareGrant,
+  LoginRequest,
+  LoginResponse,
+  AdminInfo,
 } from '../types';
 
 /**
@@ -31,6 +34,21 @@ import type {
  * 使用相对路径，通过Vite代理转发到后端服务
  */
 const API_BASE_URL = '/delta-sharing/admin/v1';
+
+/**
+ * 统一的 API fetch 封装，自动携带 credentials: 'include'
+ * 确保浏览器随请求发送 HttpOnly Cookie（JWT admin_token）
+ *
+ * @param url - 请求 URL
+ * @param options - fetch 选项
+ * @returns fetch Response 对象
+ */
+async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
+}
 
 /**
  * 处理API响应
@@ -99,7 +117,7 @@ export const shareApi = {
       pageToken: params?.pageToken,
     });
 
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<ShareListResponse>(response);
   },
 
@@ -109,7 +127,7 @@ export const shareApi = {
    * @returns 创建的Share对象
    */
   async createShare(data: CreateShareRequest): Promise<Share> {
-    const response = await fetch(`${API_BASE_URL}/shares`, {
+    const response = await apiFetch(`${API_BASE_URL}/shares`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -126,7 +144,7 @@ export const shareApi = {
    * @returns 更新后的Share对象
    */
   async renameShare(shareName: string, newName: string): Promise<Share> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}/rename`,
       {
         method: 'PUT',
@@ -144,7 +162,7 @@ export const shareApi = {
    * @param shareName - Share名称
    */
   async deleteShare(shareName: string): Promise<void> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}`,
       {
         method: 'DELETE',
@@ -159,7 +177,7 @@ export const shareApi = {
    * @returns ShareObject列表响应
    */
   async getShareObjects(shareName: string): Promise<ShareObjectListResponse> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}/objects`
     );
     return handleResponse<ShareObjectListResponse>(response);
@@ -172,7 +190,7 @@ export const shareApi = {
    * @returns 添加的ShareObject
    */
   async addShareObject(shareName: string, data: AddShareObjectRequest): Promise<ShareObject> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}/objects`,
       {
         method: 'POST',
@@ -199,7 +217,7 @@ export const shareApi = {
     objectName: string,
     data: UpdateShareObjectRequest
   ): Promise<ShareObject> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}/objects/${objectType}/${encodeURIComponent(objectName)}`,
       {
         method: 'PUT',
@@ -229,7 +247,7 @@ export const shareApi = {
       `${API_BASE_URL}/shares/${encodeURIComponent(shareName)}/objects/${objectType}/${encodeURIComponent(objectName)}`,
       { schema_name: schemaName || undefined }
     );
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: 'DELETE',
     });
     await handleResponse<void>(response);
@@ -247,7 +265,7 @@ export const shareApi = {
     schemaName: string,
     dlcDatabase?: string
   ): Promise<SyncTablesResponse> {
-    const response = await fetch(`${API_BASE_URL}/sync/tables`, {
+    const response = await apiFetch(`${API_BASE_URL}/sync/tables`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -278,7 +296,7 @@ export const recipientApi = {
       pageToken: params?.pageToken,
     });
 
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<RecipientListResponse>(response);
   },
 
@@ -288,7 +306,7 @@ export const recipientApi = {
    * @returns 创建的Recipient对象
    */
   async createRecipient(data: CreateRecipientRequest): Promise<Recipient> {
-    const response = await fetch(`${API_BASE_URL}/recipients`, {
+    const response = await apiFetch(`${API_BASE_URL}/recipients`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -308,7 +326,7 @@ export const recipientApi = {
    * @returns 更新后的Recipient对象
    */
   async updateRecipient(name: string, data: UpdateRecipientRequest): Promise<Recipient> {
-    const response = await fetch(`${API_BASE_URL}/recipients/${encodeURIComponent(name)}`, {
+    const response = await apiFetch(`${API_BASE_URL}/recipients/${encodeURIComponent(name)}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -327,7 +345,7 @@ export const recipientApi = {
    * @param name - Recipient名称
    */
   async deleteRecipient(name: string): Promise<void> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/recipients/${encodeURIComponent(name)}`,
       {
         method: 'DELETE',
@@ -356,7 +374,7 @@ export const recipientApi = {
       }
     );
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: 'POST',
     });
     return handleResponse<TokenResponse>(response);
@@ -368,7 +386,7 @@ export const recipientApi = {
    * @returns 授权的Share列表
    */
   async getRecipientShares(name: string): Promise<{ items: Array<{ share_name: string; granted_at: number }> }> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/recipients/${encodeURIComponent(name)}/shares`
     );
     return handleResponse<{ items: Array<{ share_name: string; granted_at: number }> }>(response);
@@ -387,7 +405,7 @@ export const recipientApi = {
         share_name: shareName,
       }
     );
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: 'POST',
     });
     return handleResponse<ShareGrant>(response);
@@ -399,7 +417,7 @@ export const recipientApi = {
    * @param shareName - Share名称
    */
   async revokeShareFromRecipient(name: string, shareName: string): Promise<void> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/recipients/${encodeURIComponent(name)}/shares/${encodeURIComponent(shareName)}`,
       {
         method: 'DELETE',
@@ -424,7 +442,7 @@ export const recipientApi = {
         includeExpired,
       }
     );
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<{ items: Array<{ token_hash: string; token_prefix: string; created_at: number; expires_at: number | null; is_revoked: boolean; profile_downloaded: boolean }> }>(response);
   },
 
@@ -434,7 +452,7 @@ export const recipientApi = {
    * @param tokenHash - 要撤销的Token的SHA-256哈希值
    */
   async revokeToken(name: string, tokenHash: string): Promise<void> {
-    const response = await fetch(
+    const response = await apiFetch(
       `${API_BASE_URL}/recipients/${encodeURIComponent(name)}/tokens/${encodeURIComponent(tokenHash)}`,
       {
         method: 'DELETE',
@@ -474,7 +492,7 @@ export const auditLogApi = {
    */
   async getLogFiles(): Promise<AuditLogListResponse> {
     const url = `${API_BASE_URL}/audit-logs`;
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<AuditLogListResponse>(response);
   },
 
@@ -494,7 +512,7 @@ export const auditLogApi = {
       page_size: params.page_size,
       filters: params.filters,
     });
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<AuditLogQueryResponse>(response);
   },
 };
@@ -509,8 +527,48 @@ export const configApi = {
    */
   async fetchConfig(): Promise<AppConfig> {
     const url = `${API_BASE_URL}/config`;
-    const response = await fetch(url);
+    const response = await apiFetch(url);
     return handleResponse<AppConfig>(response);
+  },
+};
+
+/**
+ * 认证相关 API
+ */
+export const authApi = {
+  /**
+   * 管理员登录
+   * @param data - 登录请求（username + password）
+   * @returns 登录响应（admin_id + username + display_name）
+   */
+  async login(data: LoginRequest): Promise<LoginResponse> {
+    const response = await apiFetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<LoginResponse>(response);
+  },
+
+  /**
+   * 管理员登出 - 清除服务端 Cookie
+   */
+  async logout(): Promise<void> {
+    const response = await apiFetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+    });
+    await handleResponse<void>(response);
+  },
+
+  /**
+   * 获取当前登录管理员信息 - 用于验证会话有效性
+   * @returns 当前管理员信息
+   */
+  async getCurrentAdmin(): Promise<AdminInfo> {
+    const response = await apiFetch(`${API_BASE_URL}/auth/me`);
+    return handleResponse<AdminInfo>(response);
   },
 };
 
@@ -522,6 +580,7 @@ export const api = {
   recipient: recipientApi,
   auditLog: auditLogApi,
   config: configApi,
+  auth: authApi,
 };
 
 export default api;

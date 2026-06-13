@@ -9,15 +9,19 @@ Admin API - 前端配置暴露端点
 端点路径: GET /admin/v1/config
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.config import get_config
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(tags=["admin-config"])
+router = APIRouter(
+    tags=["admin-config"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 @router.get("/config")

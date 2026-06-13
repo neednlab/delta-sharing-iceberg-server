@@ -57,6 +57,9 @@ shares:
             metastore_db: "playground"
             metastore_table: "ice_t2"
 
+admin:
+  jwt_secret: "${JWT_SECRET}"
+
 logging:
   log_dir: "./log"
   app_log_level: "INFO"

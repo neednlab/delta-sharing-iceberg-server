@@ -12,12 +12,15 @@ import {
 } from '@fluentui/react-components';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { Navigation } from './components/Navigation';
 import { ShareManager } from './components/ShareManager';
 import { RecipientManager } from './components/RecipientManager';
 import { ShareAssetDetail } from './components/ShareAssetDetail';
 import { AuditLogViewer } from './components/AuditLogViewer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './components/LoginPage';
 
 /**
  * Component Styles
@@ -64,18 +67,19 @@ function ThemedApp() {
   return (
     <FluentProvider theme={currentTheme}>
       <BrowserRouter>
-        <div className={useStyles().container}>
-          <Navigation />
-          <main className={useStyles().content}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/shares" replace />} />
-              <Route path="/shares" element={<ErrorBoundary><ShareManager /></ErrorBoundary>} />
-              <Route path="/shares/:shareId/assets" element={<ErrorBoundary><ShareAssetDetail /></ErrorBoundary>} />
-              <Route path="/recipients" element={<ErrorBoundary><RecipientManager /></ErrorBoundary>} />
-              <Route path="/audit-logs" element={<ErrorBoundary><AuditLogViewer /></ErrorBoundary>} />
-            </Routes>
-          </main>
-        </div>
+        <Routes>
+          {/* 公开路由：登录页面无需认证 */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* 受保护路由：需要管理员登录 */}
+          <Route path="/shares" element={<ProtectedRoute><Navigation /><main className={useStyles().content}><ErrorBoundary><ShareManager /></ErrorBoundary></main></ProtectedRoute>} />
+          <Route path="/shares/:shareId/assets" element={<ProtectedRoute><Navigation /><main className={useStyles().content}><ErrorBoundary><ShareAssetDetail /></ErrorBoundary></main></ProtectedRoute>} />
+          <Route path="/recipients" element={<ProtectedRoute><Navigation /><main className={useStyles().content}><ErrorBoundary><RecipientManager /></ErrorBoundary></main></ProtectedRoute>} />
+          <Route path="/audit-logs" element={<ProtectedRoute><Navigation /><main className={useStyles().content}><ErrorBoundary><AuditLogViewer /></ErrorBoundary></main></ProtectedRoute>} />
+
+          {/* 根路径：已登录跳转 /shares，未登录跳转 /login */}
+          <Route path="/" element={<Navigate to="/shares" replace />} />
+        </Routes>
       </BrowserRouter>
     </FluentProvider>
   );
@@ -93,7 +97,9 @@ function ThemedApp() {
 function App() {
   return (
     <ThemeProvider>
-      <ThemedApp />
+      <AuthProvider>
+        <ThemedApp />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

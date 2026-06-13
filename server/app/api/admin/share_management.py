@@ -14,9 +14,10 @@ Admin API - Share 实体管理端点
 """
 
 from typing import Optional, Dict, List
-from fastapi import APIRouter, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.core.dlc_client import get_dlc_client, DLCConfigError, DLCAPIError
@@ -24,7 +25,11 @@ from app.repositories.share_repository import ShareRepository
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(prefix="/shares", tags=["admin-share-management"])
+router = APIRouter(
+    prefix="/shares",
+    tags=["admin-share-management"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 class CreateShareRequest(BaseModel):

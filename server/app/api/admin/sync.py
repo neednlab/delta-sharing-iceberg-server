@@ -6,9 +6,10 @@ Admin API - DLC 表同步端点
 """
 
 from typing import Optional
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.core.dlc_client import get_dlc_client, DLCConfigError, DLCAPIError
@@ -16,7 +17,11 @@ from app.repositories.share_repository import ShareRepository
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(prefix="/sync", tags=["admin-sync"])
+router = APIRouter(
+    prefix="/sync",
+    tags=["admin-sync"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 class SyncTablesRequest(BaseModel):

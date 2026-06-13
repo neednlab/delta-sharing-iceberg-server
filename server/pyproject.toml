@@ -17,6 +17,8 @@ dependencies = [
     "loguru>=0.7.3",
     "fastavro>=1.12.2",
     "sqlalchemy>=2.0.49",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt<5.0.0",
 ]
 
 [project.optional-dependencies]

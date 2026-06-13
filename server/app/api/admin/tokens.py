@@ -9,8 +9,9 @@ Admin API - Token 管理端点
 
 from typing import Optional
 
-from fastapi import APIRouter, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.repositories.token_repository import TokenRepository
@@ -19,7 +20,11 @@ from app.services.token_service import TokenService
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(prefix="/recipients", tags=["admin-tokens"])
+router = APIRouter(
+    prefix="/recipients",
+    tags=["admin-tokens"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 @router.post("/{name}/token", status_code=201)

@@ -6,6 +6,7 @@ Admin API 路由模块
 - Share 授权（授权、撤销、查询）
 - Share 实体管理（创建、删除、重命名、资产管理）
 - Token 管理（生成、撤销、查询）
+- 管理员认证（登录、登出、获取当前用户信息）
 
 所有管理 API 路径前缀为 /delta-sharing/admin/v1
 """
@@ -19,9 +20,12 @@ from app.api.admin.share_management import router as share_management_router
 from app.api.admin.sync import router as sync_router
 from app.api.admin.audit_logs import router as audit_logs_router
 from app.api.admin.config import router as config_router
+from app.api.admin.auth import router as auth_router
 
 admin_router = APIRouter(prefix="/admin/v1", tags=["admin"])
 
+# 认证路由优先注册（不受 admin 认证保护）
+admin_router.include_router(auth_router)
 admin_router.include_router(recipients_router)
 admin_router.include_router(shares_router)
 admin_router.include_router(tokens_router)

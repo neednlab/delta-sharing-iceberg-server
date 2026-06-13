@@ -9,14 +9,19 @@ import json
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(prefix="/audit-logs", tags=["admin-audit-logs"])
+router = APIRouter(
+    prefix="/audit-logs",
+    tags=["admin-audit-logs"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 # 日志根目录（相对 server/ 目录）
 LOG_BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "log"

@@ -18,9 +18,11 @@ import {
   DocumentSearchRegular,
   WeatherMoonRegular,
   WeatherSunnyRegular,
+  PersonRegular,
 } from '@fluentui/react-icons';
-import { useLocation, NavLink } from 'react-router-dom';
+import { useLocation, NavLink, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import Logo from '../assets/iceberg-logo-icon.png';
 
 /**
@@ -57,8 +59,10 @@ const useStyles = makeStyles({
     textDecoration: 'none',
     color: 'inherit',
   },
-  themeToggle: {
-    marginLeft: 'auto',
+  toolbarActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
   },
 });
 
@@ -74,7 +78,9 @@ const useStyles = makeStyles({
 export const Navigation: React.FC = () => {
   const styles = useStyles();
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { logout } = useAuth();
 
   const getActivePage = (): PageType => {
     if (location.pathname.startsWith('/shares')) return 'shares';
@@ -84,6 +90,15 @@ export const Navigation: React.FC = () => {
   };
 
   const activePage = getActivePage();
+
+  /**
+   * 处理登出
+   * 调用 AuthContext.logout() 清除会话并跳转到登录页
+   */
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <header className={styles.header}>
@@ -112,14 +127,22 @@ export const Navigation: React.FC = () => {
           <NavLink to="/audit-logs" className={styles.navLink}>Audit Log</NavLink>
         </Tab>
       </TabList>
-      <Button
-        className={styles.themeToggle}
-        appearance="subtle"
-        icon={theme === 'dark' ? <WeatherSunnyRegular /> : <WeatherMoonRegular />}
-        onClick={toggleTheme}
-        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-      />
+      <div className={styles.toolbarActions}>
+        <Button
+          appearance="subtle"
+          icon={<PersonRegular />}
+          onClick={handleLogout}
+          title="Logout"
+          aria-label="Logout"
+        />
+        <Button
+          appearance="subtle"
+          icon={theme === 'dark' ? <WeatherSunnyRegular /> : <WeatherMoonRegular />}
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        />
+      </div>
     </header>
   );
 };
