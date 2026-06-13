@@ -256,3 +256,25 @@ export interface AppConfig {
     default_expiration_hours: number;
   };
 }
+
+/**
+ * 登录请求
+ */
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+/**
+ * 登录响应
+ */
+export interface LoginResponse {
+  admin_id: string;
+  username: string;
+  display_name: string;
+}
+
+/**
+ * 当前管理员信息（与 LoginResponse 结构一致）
+ */
+export type AdminInfo = LoginResponse;

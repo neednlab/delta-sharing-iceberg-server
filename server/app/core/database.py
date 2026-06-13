@@ -2,7 +2,7 @@
 数据库管理模块
 
 该模块提供 Delta Sharing Server 的数据库管理功能，基于 SQLAlchemy Core 实现。
-数据库用于存储以下 8 张业务表：
+数据库用于存储以下 9 张业务表：
 - shares: 共享资源定义
 - shared_schemas: 共享 Schema 定义
 - shared_tables: 共享 Table 定义
@@ -11,6 +11,7 @@
 - bearer_tokens: Bearer Token 认证凭证（token_hash 存储 SHA-256 哈希值，不持久化 Profile）
 - token_revocation: Token 撤销记录（token_hash 存储 SHA-256 哈希值）
 - snapshot_version: 快照版本追踪信息
+- admin_users: 管理员用户表（username + bcrypt 密码哈希）
 
 使用 SQLAlchemy Engine + MetaData + Table 管理数据库连接与表结构，
 支持 SQLite 和 PostgreSQL 双向兼容。
@@ -19,6 +20,7 @@
 业务数据访问已迁移至 Repository 层：
 - Token 相关 → TokenRepository
 - Version 相关 → VersionRepository
+- Admin 用户相关 → AdminUserRepository
 """
 
 import os
@@ -49,7 +51,7 @@ from app.core.config import get_config
 _metadata = MetaData()
 
 # ------------------------------------------------------------------
-# 8 张业务表的 Table 对象定义
+# 9 张业务表的 Table 对象定义
 # 时间戳列 (created_at, updated_at, granted_at, revoked_at) 不设置
 # server_default，由 Repository 层通过 now_ts() 显式传入，
 # 以避免数据库方言差异（SQLite strftime vs PG EXTRACT(EPOCH...)）
@@ -159,6 +161,20 @@ token_revocation = Table(
     Column("reason", String),
 )
 
+# 管理员用户表：存储 Admin UI 登录用户信息
+# password_hash 使用 bcrypt 哈希存储，永不明文保存
+admin_users = Table(
+    "admin_users",
+    _metadata,
+    Column("admin_id", String, primary_key=True),
+    Column("username", String, unique=True, nullable=False),
+    Column("password_hash", String, nullable=False),
+    Column("display_name", String, default=""),
+    Column("is_active", Integer, default=1),
+    Column("created_at", Integer, nullable=False),
+    Column("updated_at", Integer, nullable=False),
+)
+
 # ------------------------------------------------------------------
 # 业务索引定义
 # 由 MetaData.create_all() 一并创建，包含 IF NOT EXISTS 语义
@@ -194,6 +210,11 @@ idx_recipient_shares_recipient = Index(
     recipient_shares.c.recipient_id,
 )
 
+idx_admin_users_username = Index(
+    "idx_admin_users_username",
+    admin_users.c.username,
+)
+
 
 class Database:
     """数据库管理类
@@ -221,6 +242,7 @@ class Database:
     bearer_tokens_table = bearer_tokens
     token_revocation_table = token_revocation
     snapshot_version_table = snapshot_version
+    admin_users_table = admin_users
 
     def __new__(cls):
         """获取或创建单例实例。"""

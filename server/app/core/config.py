@@ -224,6 +224,19 @@ class LoggingConfig:
     audit_log_level: str = "INFO"
 
 
+class AdminConfig:
+    """管理员认证配置类
+
+    管理 Admin UI 的 JWT 认证相关配置。
+
+    Attributes:
+        jwt_secret: JWT 签名密钥。支持通过配置文件中的 ${JWT_SECRET} 占位符
+            从环境变量读取，或直接设置明文值。未配置时启动时自动生成随机密钥。
+    """
+
+    jwt_secret: str = ""
+
+
 class DLCConfig:
     """腾讯云 DLC 配置类
 
@@ -255,8 +268,9 @@ class Config:
         presigned_url: 预签名 URL 配置。
         shares: Shares 配置。
         profile: Profile 配置。
-        logging: 日志配置（含审计日志级别）。
+        admin: 管理员认证配置。
         dlc: DLC 配置。
+        logging: 日志配置（含审计日志级别）。
     """
 
     server: ServerConfig
@@ -266,6 +280,7 @@ class Config:
     presigned_url: PresignedURLConfig
     shares: SharesConfig
     profile: ProfileConfig
+    admin: AdminConfig
     dlc: DLCConfig
     logging: LoggingConfig
 
@@ -278,6 +293,7 @@ class Config:
         self.presigned_url = PresignedURLConfig()
         self.shares = SharesConfig()
         self.profile = ProfileConfig()
+        self.admin = AdminConfig()
         self.dlc = DLCConfig()
         self.logging = LoggingConfig()
 
@@ -324,6 +340,7 @@ _CONFIG_SECTION_MAP = {
     "token": "token",
     "presigned_url": "presigned_url",
     "profile": "profile",
+    "admin": "admin",
     "dlc": "dlc",
     "logging": "logging",
 }
@@ -368,6 +385,7 @@ def load_config(config_path: str = "./config.yaml") -> Config:
         ("DLC_ENDPOINT", _global_config.dlc, "endpoint", None),
         ("DLC_REGION", _global_config.dlc, "region", "ap-shanghai"),
         ("PAGE_TOKEN_SECRET", _global_config.token, "page_token_secret", None),
+        ("JWT_SECRET", _global_config.admin, "jwt_secret", None),
     ]
 
     for env_name, config_obj, attr_name, default in _env_overrides:

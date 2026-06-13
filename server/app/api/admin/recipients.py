@@ -11,16 +11,21 @@ Admin API - Recipient 管理端点
 
 from typing import Optional
 
-from fastapi import APIRouter, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, Field
 
+from app.core.admin_auth import get_current_admin
 from app.core.audit import get_audit_logger
 from app.core.errors import ErrorCode, DeltaSharingError
 from app.services.recipient_service import RecipientService
 from app.utils.audit_utils import raise_audited_error
 from loguru import logger
 
-router = APIRouter(prefix="/recipients", tags=["admin-recipients"])
+router = APIRouter(
+    prefix="/recipients",
+    tags=["admin-recipients"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 class CreateRecipientBody(BaseModel):
